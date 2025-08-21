@@ -56,7 +56,7 @@ public class DoctorController {
     }
 
     /**
-     * Update doctor profile by userId
+     * Update doctors profile by userId
      */
     @PutMapping("/user/{userId}")
     public ResponseEntity<Map<String, Object>> updateDoctorProfile(
