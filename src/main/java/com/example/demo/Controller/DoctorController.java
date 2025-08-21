@@ -37,7 +37,7 @@ public class DoctorController {
     // ==================== CRUD OPERATIONS ====================
 
     /**
-     * Create a new doctor profile
+     * Create a new doctors profile
      */
     @PostMapping
     public ResponseEntity<Map<String, Object>> createDoctor(@Valid @RequestBody DoctorsEntity doctor) {
