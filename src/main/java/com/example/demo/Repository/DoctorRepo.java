@@ -49,6 +49,8 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
 
     List<DoctorsEntity> findByIsActiveTrue();
     List<DoctorsEntity> findByIsActiveFalse();
+    
+    List<DoctorsEntity> findByIsAvailableTrueAndIsActiveTrue();
 
     // ---------- RANGE QUERIES ----------
     List<DoctorsEntity> findByExperienceYearsGreaterThanEqual(Integer years);
@@ -71,6 +73,7 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
     List<DoctorsEntity> findByEmploymentType(EmploymentType type);
 
     // ---------- COMBINATION QUERIES ----------
+    List<DoctorsEntity> findBySpecializationAndIsActiveTrueAndIsAvailableTrue(String specialization);
     List<DoctorsEntity> findBySpecializationAndCity(String specialization, String city);
     List<DoctorsEntity> findBySpecializationAndIsAvailableTrue(String specialization);
     List<DoctorsEntity> findByCityAndIsAvailableTrue(String city);

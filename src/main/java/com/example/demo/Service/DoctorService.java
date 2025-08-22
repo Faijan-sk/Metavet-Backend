@@ -2,6 +2,7 @@ package com.example.demo.Service;
 
 
 
+import com.example.demo.Dto.DoctorDtoForClient;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Repository.DoctorRepo;
@@ -22,6 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class DoctorService {
@@ -608,6 +610,41 @@ public class DoctorService {
     public List<String> getAvailableSpecializations() {
         return doctorRepository.findAllUniqueSpecializationsForAvailableDoctors();
     }
+    
+ // ==================== CUSTOMISED  METHODS ====================
+    
+    public List<DoctorDtoForClient> getAvailableAndActive() {
+        return doctorRepository.findByIsAvailableTrueAndIsActiveTrue()
+                .stream()
+                .map(this::convertToDto) // entity → DTO
+                .toList();
+    }
+
+    private DoctorDtoForClient convertToDto(DoctorsEntity doctor) {
+        DoctorDtoForClient dto = new DoctorDtoForClient();
+
+        // UserEntity se data
+        dto.setDocotrUid(doctor.getUser().getUid());
+        dto.setEmail(doctor.getUser().getEmail());
+        dto.setPhoneNumber(doctor.getUser().getPhoneNumber());
+        dto.setFirstName(doctor.getUser().getFirstName());
+        dto.setLastName(doctor.getUser().getLastName());
+
+        // DoctorEntity se data
+        dto.setDoctorId(doctor.getDoctorId());
+        dto.setExperienceYears(doctor.getExperienceYears());
+        dto.setAddress(doctor.getAddress());
+        dto.setCity(doctor.getCity());
+        dto.setState(doctor.getState());
+        dto.setBio(doctor.getBio());
+        dto.setConsultationFee(doctor.getConsultationFee());
+        dto.setLicenseNumber(doctor.getLicenseNumber());
+        dto.setQualification(doctor.getQualification());
+        dto.setSpecialization(doctor.getSpecialization());
+
+        return dto;
+    }
+
 
 
 }

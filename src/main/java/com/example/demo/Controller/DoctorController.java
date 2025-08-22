@@ -1,5 +1,6 @@
 package com.example.demo.Controller;
 
+import com.example.demo.Dto.DoctorDtoForClient;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Service.DoctorService;
@@ -255,20 +256,6 @@ public class DoctorController {
     }
 
     // ==================== AVAILABILITY AND STATUS ENDPOINTS ====================
-
-    /**
-     * Get available doctors
-     */
-    @GetMapping("/available")
-    public ResponseEntity<Map<String, Object>> getAvailableDoctors() {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getAvailableDoctors();
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
     /**
      * Get unavailable doctors
      */
