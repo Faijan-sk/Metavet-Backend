@@ -1,3 +1,5 @@
+
+// Updated OtpAuthService.java
 package com.example.demo.Service;
 
 import java.util.Base64;
@@ -19,7 +21,6 @@ import javax.crypto.SecretKey;
 @Service
 public class OtpAuthService {
 
-    
     @Autowired
     private UserRepo userRepository;
 
@@ -27,15 +28,13 @@ public class OtpAuthService {
     private PasswordEncoder passwordEncoder;
     
     @Autowired
-	private JwtService jwtService;
+    private JwtService jwtService;
 
     // Fixed for JJWT 0.12.6 - Generate SecretKey properly
     private static final SecretKey SECRET_KEY = Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS256);
 
     public Map<String, Object> verifyOtpWithToken(String token, String otp) {
-    	
-    	
-
+        
         Map<String, Object> response = new HashMap<>();
 
         try {
@@ -89,36 +88,35 @@ public class OtpAuthService {
             // 6. Mark user as verified and save changes
             UsersEntity authenticatedUser = userRepository.save(user);
 
-           
-         // Generate JWT tokens
+            // Generate JWT tokens
             String jwtAccessToken;
             String jwtRefreshToken;
 
             try {
                 jwtAccessToken = jwtService.generateToken(authenticatedUser);
-                // FIXED: Pass UserDetails object instead of phone number
                 jwtRefreshToken = jwtService.generateRefreshToken(authenticatedUser);
-                // या फिर email pass करें: 
-                // jwtRefreshToken = jwtService.generateRefreshToken(authenticatedUser.getEmail());
             } catch (Exception e) {
                 response.put("status", "error");
                 response.put("message", "Token generation failed: " + e.getMessage());
                 return response;
             }
 
-            // 7. Prepare success response
+            // 7. Prepare success response - UPDATED STRUCTURE
+            // User data without tokens
             Map<String, Object> userData = new HashMap<>();
             userData.put("firstName", user.getFirstName());
             userData.put("lastName", user.getLastName());
             userData.put("phoneNumber", user.getPhoneNumber());
             userData.put("countryCode", user.getCountryCode());
             userData.put("email", user.getEmail());
-            userData.put("userType", user.getUserType());          userData.put("accessToken", jwtAccessToken);
-            userData.put("refreshToken", jwtRefreshToken);
-
+            userData.put("userType", user.getUserType());
+            
+            // Response structure with tokens outside data
             response.put("status", "success");
             response.put("phoneNumber", phoneNumber);
             response.put("userData", userData);
+            response.put("accessToken", jwtAccessToken);    // Moved outside userData
+            response.put("refreshToken", jwtRefreshToken);  // Moved outside userData
 
         } catch (NumberFormatException e) {
             response.put("status", "failed");
@@ -133,13 +131,4 @@ public class OtpAuthService {
 
         return response;
     }
-
-    // Additional utility methods for JWT handling
-
-    /**
-     * Extract claims from JWT token
-     */
-   
-
-    
 }

@@ -1,6 +1,5 @@
 package com.example.demo.Controller;
 
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.demo.Service.OtpAuthService;
 
-
 @RestController
 @RequestMapping("/auth/otp")
 public class OtpAuthController {
@@ -23,18 +21,16 @@ public class OtpAuthController {
     @Autowired
     private OtpAuthService otpServices;
 
-     
-    // Ab token URL me hoga aur OTP body me
+    // Token URL me hoga aur OTP body me
     @PostMapping("/verify-otp/{token}")
     public ResponseEntity<Map<String, Object>> verifyOtp(
             @PathVariable("token") String token,
             @RequestBody Map<String, String> request) {
-        
+
         Map<String, Object> response = new HashMap<>();
 
         try {
             String otp = request.get("otp");
-           
 
             // OTP validation (4 digits)
             if (otp == null || !otp.matches("^[0-9]{4}$")) {
@@ -54,9 +50,13 @@ public class OtpAuthController {
             Map<String, Object> verificationResult = otpServices.verifyOtpWithToken(token, otp);
 
             if ("success".equals(verificationResult.get("status"))) {
+                // Include tokens at top level, outside data
                 response.put("success", true);
                 response.put("message", "OTP verified successfully.");
                 response.put("data", verificationResult.get("userData"));
+                response.put("accessToken", verificationResult.get("accessToken")); // Added at top level
+                response.put("refreshToken", verificationResult.get("refreshToken")); // Added at top level
+
                 return ResponseEntity.ok(response);
             } else {
                 response.put("success", false);
