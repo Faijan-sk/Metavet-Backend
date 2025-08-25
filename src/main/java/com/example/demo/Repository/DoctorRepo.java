@@ -30,6 +30,8 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
 	   // ---------- BASIC FINDS ----------
     Optional<DoctorsEntity> findByLicenseNumber(String licenseNumber);
 
+    List<DoctorsEntity> findAll();
+    
     Optional<DoctorsEntity> findByUser(UsersEntity user);
 
     List<DoctorsEntity> findBySpecialization(String specialization);

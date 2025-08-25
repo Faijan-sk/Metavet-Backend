@@ -2,7 +2,9 @@ package com.example.demo.Service;
 
 
 
+import com.example.demo.Dto.DoctorDtoForAdmin;
 import com.example.demo.Dto.DoctorDtoForClient;
+import com.example.demo.Dto.DoctorDtoForAdmin;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Repository.DoctorRepo;
@@ -619,6 +621,9 @@ public class DoctorService {
                 .map(this::convertToDto) // entity → DTO
                 .toList();
     }
+    
+    
+    
 
     private DoctorDtoForClient convertToDto(DoctorsEntity doctor) {
         DoctorDtoForClient dto = new DoctorDtoForClient();
@@ -645,6 +650,50 @@ public class DoctorService {
         return dto;
     }
 
+
+ // Get all doctors for admin (including inactive ones)
+ public List<DoctorDtoForAdmin> getAllDoctorsForAdmin() {
+     return doctorRepository.findAll()
+             .stream()
+             .map(this::convertToDtoForAdmin)
+             .toList();
+ }
+
+ // Convert DoctorEntity to DoctorDtoForAdmin
+ private DoctorDtoForAdmin convertToDtoForAdmin(DoctorsEntity doctor) {
+     DoctorDtoForAdmin dto = new DoctorDtoForAdmin();
+
+     // UserEntity data
+     dto.setDoctorUid(doctor.getUser().getUid());
+     dto.setEmail(doctor.getUser().getEmail());
+     dto.setPhoneNumber(doctor.getUser().getPhoneNumber());
+     dto.setFirstName(doctor.getUser().getFirstName());
+     dto.setLastName(doctor.getUser().getLastName());
+     dto.setCreatedAt(doctor.getUser().getCreatedAt());
+
+     // DoctorEntity data
+     dto.setDoctorId(doctor.getDoctorId());
+     dto.setExperienceYears(doctor.getExperienceYears());
+     dto.setHospitalClinicAddress(doctor.getHospitalClinicAddress());
+     dto.setCity(doctor.getCity());
+     dto.setState(doctor.getState());
+     dto.setBio(doctor.getBio());
+     dto.setConsultationFee(doctor.getConsultationFee());
+     dto.setLicenseNumber(doctor.getLicenseNumber());
+     dto.setQualification(doctor.getQualification());
+     dto.setSpecialization(doctor.getSpecialization());
+     dto.setProfileCompleted(doctor.getProfileCompleted());
+     dto.setLicenseIssueDate(doctor.getLicenseIssueDate());
+     dto.setLicenseExpiryDate(doctor.getLicenseExpiryDate());
+     dto.setJoiningDate(doctor.getJoiningDate());
+     dto.setIsActive(doctor.getIsActive());
+     dto.setIsAvailable(doctor.getIsAvailable());
+
+     return dto;
+ }
+ 
+    
+    
 
 
 }

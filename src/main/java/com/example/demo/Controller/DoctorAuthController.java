@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.Dto.DoctorDtoForAdmin;
 import com.example.demo.Dto.DoctorDtoForClient;
 import com.example.demo.Service.DoctorService;
 
@@ -22,6 +23,8 @@ public class DoctorAuthController {
 	private DoctorService doctorService;
 	
 	
+	
+	
 	 @GetMapping("/doctors/available")
 	    public ResponseEntity<Map<String, Object>> getAvailableDoctors() {
 	        Map<String, Object> response = new HashMap<>();
@@ -31,6 +34,17 @@ public class DoctorAuthController {
 	        response.put("count", doctors.size());
 	        return ResponseEntity.ok(response);
 	    }
+	 
+	 @GetMapping("/admin/doctors")
+	    public ResponseEntity<Map<String, Object>> getAllDoctorsForAdmin() {
+	        Map<String, Object> response = new HashMap<>();
+	        List<DoctorDtoForAdmin> doctors = doctorService.getAllDoctorsForAdmin();
+	        response.put("success", true);
+	        response.put("data", doctors);
+	        response.put("count", doctors.size());
+	        return ResponseEntity.ok(response);
+	    }
+	 
 
 	
 	
