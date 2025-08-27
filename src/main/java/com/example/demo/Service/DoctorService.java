@@ -4,12 +4,11 @@ package com.example.demo.Service;
 
 import com.example.demo.Dto.DoctorDtoForAdmin;
 import com.example.demo.Dto.DoctorDtoForClient;
-import com.example.demo.Dto.DoctorDtoForAdmin;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Repository.DoctorRepo;
 import com.example.demo.Repository.UserRepo;
-import com.example.demo.Enum.EmploymentStatus;
+import com.example.demo.Enum.AppointmentStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
 
@@ -79,6 +78,7 @@ public class DoctorService {
             doctor.setUser(user);
             doctor.setCreatedAt(LocalDateTime.now());
             doctor.setIsActive(true);
+            doctor.setAppointmentStatus(AppointmentStatus.PENDING); // Set default appointment status
         }
 
         // Set all doctor fields
@@ -87,7 +87,6 @@ public class DoctorService {
         doctor.setLicenseIssueDate(doctorRequest.getLicenseIssueDate());
         doctor.setLicenseExpiryDate(doctorRequest.getLicenseExpiryDate());
         doctor.setExperienceYears(doctorRequest.getExperienceYears());
-        doctor.setYearsOfExperience(doctorRequest.getYearsOfExperience());
         doctor.setQualification(doctorRequest.getQualification());
         doctor.setHospitalClinicName(doctorRequest.getHospitalClinicName());
         doctor.setHospitalClinicAddress(doctorRequest.getHospitalClinicAddress());
@@ -107,7 +106,6 @@ public class DoctorService {
         
         // Employment Information
         doctor.setJoiningDate(doctorRequest.getJoiningDate());
-        doctor.setEmploymentStatus(doctorRequest.getEmploymentStatus());
         doctor.setEmploymentType(doctorRequest.getEmploymentType());
 
         // Set availability if provided, otherwise default to true
@@ -117,8 +115,11 @@ public class DoctorService {
             doctor.setIsAvailable(true);
         }
 
-        // Mark profile as completed
-        doctor.setProfileCompleted(true);
+        // Set appointment status if provided
+        if (doctorRequest.getAppointmentStatus() != null) {
+            doctor.setAppointmentStatus(doctorRequest.getAppointmentStatus());
+        }
+
         doctor.setUpdatedAt(LocalDateTime.now());
 
         return doctorRepository.save(doctor);
@@ -129,15 +130,27 @@ public class DoctorService {
      */
     @Transactional
     public DoctorsEntity createDoctor(DoctorsEntity doctor) {
+        // User validation
+        if (doctor.getUser() == null) {
+            throw new IllegalArgumentException("User is required");
+        }
+        
+        // Check if user is already a doctor
+        if (doctorRepository.existsByUser(doctor.getUser())) {
+            throw new IllegalArgumentException("User already has a doctor profile");
+        }
+        
         doctor.setCreatedAt(LocalDateTime.now());
         doctor.setUpdatedAt(LocalDateTime.now());
         doctor.setIsActive(true);
+        
         if (doctor.getIsAvailable() == null) {
             doctor.setIsAvailable(true);
         }
-        if (doctor.getProfileCompleted() == null) {
-            doctor.setProfileCompleted(false);
+        if (doctor.getAppointmentStatus() == null) {
+            doctor.setAppointmentStatus(AppointmentStatus.PENDING);
         }
+        
         return doctorRepository.save(doctor);
     }
 
@@ -163,11 +176,12 @@ public class DoctorService {
         Optional<DoctorsEntity> existingDoctor = doctorRepository.findById(doctorId);
         if (existingDoctor.isPresent()) {
             DoctorsEntity doctor = existingDoctor.get();
-            // Update fields (you can customize which fields to update)
+            // Update fields
             doctor.setSpecialization(updatedDoctor.getSpecialization());
             doctor.setConsultationFee(updatedDoctor.getConsultationFee());
             doctor.setBio(updatedDoctor.getBio());
             doctor.setIsAvailable(updatedDoctor.getIsAvailable());
+            doctor.setAppointmentStatus(updatedDoctor.getAppointmentStatus());
             doctor.setUpdatedAt(LocalDateTime.now());
             return doctorRepository.save(doctor);
         }
@@ -260,20 +274,6 @@ public class DoctorService {
     }
 
     /**
-     * Find doctors with completed profiles
-     */
-    public List<DoctorsEntity> getDoctorsWithCompletedProfiles() {
-        return doctorRepository.findByProfileCompletedTrue();
-    }
-
-    /**
-     * Find doctors with incomplete profiles
-     */
-    public List<DoctorsEntity> getDoctorsWithIncompleteProfiles() {
-        return doctorRepository.findByProfileCompletedFalse();
-    }
-
-    /**
      * Find active doctors
      */
     public List<DoctorsEntity> getActiveDoctors() {
@@ -285,6 +285,65 @@ public class DoctorService {
      */
     public List<DoctorsEntity> getInactiveDoctors() {
         return doctorRepository.findByIsActiveFalse();
+    }
+
+    // ==================== APPOINTMENT STATUS METHODS ====================
+
+    /**
+     * Get doctors by appointment status
+     */
+    public List<DoctorsEntity> getDoctorsByAppointmentStatus(AppointmentStatus status) {
+        return doctorRepository.findByAppointmentStatus(status);
+    }
+
+    /**
+     * Count doctors by appointment status
+     */
+    public long countDoctorsByAppointmentStatus(AppointmentStatus status) {
+        return doctorRepository.countByAppointmentStatus(status);
+    }
+
+    /**
+     * Update doctor appointment status
+     */
+    @Transactional
+    public boolean updateDoctorAppointmentStatus(Long doctorId, AppointmentStatus status) {
+        Optional<DoctorsEntity> doctor = doctorRepository.findById(doctorId);
+        if (doctor.isPresent()) {
+            doctor.get().setAppointmentStatus(status);
+            doctor.get().setUpdatedAt(LocalDateTime.now());
+            doctorRepository.save(doctor.get());
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get active doctors by appointment status
+     */
+    public List<DoctorsEntity> getActiveDoctorsByAppointmentStatus(AppointmentStatus status) {
+        return doctorRepository.findByAppointmentStatusAndIsActiveTrue(status);
+    }
+
+    /**
+     * Get available doctors by appointment status
+     */
+    public List<DoctorsEntity> getAvailableDoctorsByAppointmentStatus(AppointmentStatus status) {
+        return doctorRepository.findByAppointmentStatusAndIsAvailableTrue(status);
+    }
+
+    /**
+     * Get doctors by appointment status and specialization
+     */
+    public List<DoctorsEntity> getDoctorsByAppointmentStatusAndSpecialization(AppointmentStatus status, String specialization) {
+        return doctorRepository.findByAppointmentStatusAndSpecialization(status, specialization);
+    }
+
+    /**
+     * Get doctors by appointment status and city
+     */
+    public List<DoctorsEntity> getDoctorsByAppointmentStatusAndCity(AppointmentStatus status, String city) {
+        return doctorRepository.findByAppointmentStatusAndCity(status, city);
     }
 
     // ==================== EXPERIENCE AND FEE FILTERS ====================
@@ -364,13 +423,6 @@ public class DoctorService {
     }
 
     /**
-     * Find doctors by employment status
-     */
-    public List<DoctorsEntity> getDoctorsByEmploymentStatus(EmploymentStatus status) {
-        return doctorRepository.findByEmploymentStatus(status);
-    }
-
-    /**
      * Find doctors by employment type
      */
     public List<DoctorsEntity> getDoctorsByEmploymentType(EmploymentType type) {
@@ -398,13 +450,6 @@ public class DoctorService {
      */
     public List<DoctorsEntity> getDoctorsBySpecializationAndCity(String specialization, String city) {
         return doctorRepository.findBySpecializationAndCity(specialization, city);
-    }
-
-    /**
-     * Find doctors by employment status and type
-     */
-    public List<DoctorsEntity> getDoctorsByEmploymentStatusAndType(EmploymentStatus status, EmploymentType type) {
-        return doctorRepository.findByEmploymentStatusAndEmploymentType(status, type);
     }
 
     // ==================== SEARCH METHODS ====================
@@ -464,6 +509,14 @@ public class DoctorService {
     }
 
     /**
+     * Get doctors by appointment status with pagination
+     */
+    public Page<DoctorsEntity> getDoctorsByAppointmentStatusWithPagination(AppointmentStatus status, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return doctorRepository.findByAppointmentStatus(status, pageable);
+    }
+
+    /**
      * Get doctors with pagination and sorting
      */
     public Page<DoctorsEntity> getDoctorsWithPaginationAndSorting(int page, int size, String sortBy, String sortDirection) {
@@ -520,21 +573,6 @@ public class DoctorService {
     }
 
     /**
-     * Update doctor profile completion status
-     */
-    @Transactional
-    public boolean updateProfileCompletionStatus(Long doctorId, boolean isCompleted) {
-        Optional<DoctorsEntity> doctor = doctorRepository.findById(doctorId);
-        if (doctor.isPresent()) {
-            doctor.get().setProfileCompleted(isCompleted);
-            doctor.get().setUpdatedAt(LocalDateTime.now());
-            doctorRepository.save(doctor.get());
-            return true;
-        }
-        return false;
-    }
-
-    /**
      * Update consultation fee
      */
     @Transactional
@@ -570,7 +608,6 @@ public class DoctorService {
      * Get recommended doctors based on criteria
      */
     public List<DoctorsEntity> getRecommendedDoctors(String city, String specialization, Double maxFee, Integer minExperience) {
-        // This is a simplified version - you can make it more complex
         List<DoctorsEntity> doctors = doctorRepository.findBySpecializationAndCity(specialization, city);
         return doctors.stream()
                 .filter(doctor -> doctor.getIsAvailable() && doctor.getIsActive())
@@ -608,22 +645,18 @@ public class DoctorService {
         return doctorRepository.findAllUniqueSpecializationsForActiveDoctors();
     }
     
-    
     public List<String> getAvailableSpecializations() {
         return doctorRepository.findAllUniqueSpecializationsForAvailableDoctors();
     }
     
- // ==================== CUSTOMISED  METHODS ====================
+    // ==================== CUSTOMISED METHODS ====================
     
     public List<DoctorDtoForClient> getAvailableAndActive() {
         return doctorRepository.findByIsAvailableTrueAndIsActiveTrue()
                 .stream()
-                .map(this::convertToDto) // entity → DTO
+                .map(this::convertToDto)
                 .toList();
     }
-    
-    
-    
 
     private DoctorDtoForClient convertToDto(DoctorsEntity doctor) {
         DoctorDtoForClient dto = new DoctorDtoForClient();
@@ -650,50 +683,44 @@ public class DoctorService {
         return dto;
     }
 
+    // Get all doctors for admin (including inactive ones)
+    public List<DoctorDtoForAdmin> getAllDoctorsForAdmin() {
+        return doctorRepository.findAll()
+                .stream()
+                .map(this::convertToDtoForAdmin)
+                .toList();
+    }
 
- // Get all doctors for admin (including inactive ones)
- public List<DoctorDtoForAdmin> getAllDoctorsForAdmin() {
-     return doctorRepository.findAll()
-             .stream()
-             .map(this::convertToDtoForAdmin)
-             .toList();
- }
+    // Convert DoctorEntity to DoctorDtoForAdmin
+    private DoctorDtoForAdmin convertToDtoForAdmin(DoctorsEntity doctor) {
+        DoctorDtoForAdmin dto = new DoctorDtoForAdmin();
 
- // Convert DoctorEntity to DoctorDtoForAdmin
- private DoctorDtoForAdmin convertToDtoForAdmin(DoctorsEntity doctor) {
-     DoctorDtoForAdmin dto = new DoctorDtoForAdmin();
+        // UserEntity data
+        dto.setDoctorUid(doctor.getUser().getUid());
+        dto.setEmail(doctor.getUser().getEmail());
+        dto.setPhoneNumber(doctor.getUser().getPhoneNumber());
+        dto.setFirstName(doctor.getUser().getFirstName());
+        dto.setLastName(doctor.getUser().getLastName());
+        dto.setCreatedAt(doctor.getUser().getCreatedAt());
 
-     // UserEntity data
-     dto.setDoctorUid(doctor.getUser().getUid());
-     dto.setEmail(doctor.getUser().getEmail());
-     dto.setPhoneNumber(doctor.getUser().getPhoneNumber());
-     dto.setFirstName(doctor.getUser().getFirstName());
-     dto.setLastName(doctor.getUser().getLastName());
-     dto.setCreatedAt(doctor.getUser().getCreatedAt());
+        // DoctorEntity data
+        dto.setDoctorId(doctor.getDoctorId());
+        dto.setExperienceYears(doctor.getExperienceYears());
+        dto.setHospitalClinicAddress(doctor.getHospitalClinicAddress());
+        dto.setCity(doctor.getCity());
+        dto.setState(doctor.getState());
+        dto.setBio(doctor.getBio());
+        dto.setConsultationFee(doctor.getConsultationFee());
+        dto.setLicenseNumber(doctor.getLicenseNumber());
+        dto.setQualification(doctor.getQualification());
+        dto.setSpecialization(doctor.getSpecialization());
+        dto.setLicenseIssueDate(doctor.getLicenseIssueDate());
+        dto.setLicenseExpiryDate(doctor.getLicenseExpiryDate());
+        dto.setJoiningDate(doctor.getJoiningDate());
+        dto.setIsActive(doctor.getIsActive());
+        dto.setIsAvailable(doctor.getIsAvailable());
+        dto.setAppointmentStatus(doctor.getAppointmentStatus()); // Added appointment status
 
-     // DoctorEntity data
-     dto.setDoctorId(doctor.getDoctorId());
-     dto.setExperienceYears(doctor.getExperienceYears());
-     dto.setHospitalClinicAddress(doctor.getHospitalClinicAddress());
-     dto.setCity(doctor.getCity());
-     dto.setState(doctor.getState());
-     dto.setBio(doctor.getBio());
-     dto.setConsultationFee(doctor.getConsultationFee());
-     dto.setLicenseNumber(doctor.getLicenseNumber());
-     dto.setQualification(doctor.getQualification());
-     dto.setSpecialization(doctor.getSpecialization());
-     dto.setProfileCompleted(doctor.getProfileCompleted());
-     dto.setLicenseIssueDate(doctor.getLicenseIssueDate());
-     dto.setLicenseExpiryDate(doctor.getLicenseExpiryDate());
-     dto.setJoiningDate(doctor.getJoiningDate());
-     dto.setIsActive(doctor.getIsActive());
-     dto.setIsAvailable(doctor.getIsAvailable());
-
-     return dto;
- }
- 
-    
-    
-
-
+        return dto;
+    }
 }

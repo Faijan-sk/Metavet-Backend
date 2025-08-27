@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.example.demo.Enum.AppointmentStatus;
+
 import com.example.demo.Enum.EmploymentStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
@@ -37,13 +39,10 @@ public class DoctorsEntity {
     private Long doctorId;
 
     // Foreign key relationship with UsersEntity
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "uid", nullable = false, unique = true)
     private UsersEntity user;
 
-//    // Schedule Information - Relationship with DoctorAvailability
-//    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-//    private List<DoctorAvailabilityEntity> availabilities;
 
     @NotNull(message = "Experience is required")
     @Min(value = 0, message = "Experience cannot be negative")
@@ -51,21 +50,24 @@ public class DoctorsEntity {
     @Column(name = "experience_years", nullable = false)
     private Integer experienceYears;
 
-    @NotBlank(message = "Hospital/Clinic name is required")
+  
+
+
     @Size(min = 3, max = 150, message = "Hospital/Clinic name must be between 3 and 150 characters")
-    @Column(name = "hospital_clinic_name", nullable = false, length = 150)
+    @Column(name = "hospital_clinic_name", length = 150)
     private String hospitalClinicName;
 
-    @NotBlank(message = "Hospital/Clinic address is required")
+    
     @Size(min = 10, max = 300, message = "Address must be between 10 and 300 characters")
-    @Column(name = "hospital_clinic_address", nullable = false, length = 300)
+    @Column(name = "hospital_clinic_address",  length = 300)
     private String hospitalClinicAddress;
 
     @Pattern(regexp = "^[0-9]{6}$", message = "Pincode must be exactly 6 digits")
     @Column(name = "pincode", length = 6)
     private String pincode;
 
-    @Column(length = 200)
+    @NotBlank(message = "address is required")
+    @Column(length = 200, nullable = false)
     private String address;
 
     @Column(length = 50)
@@ -90,12 +92,15 @@ public class DoctorsEntity {
     @Max(value = 50000, message = "Consultation fee cannot exceed 50000")
     @Column(name = "consultation_fee", nullable = false)
     private Double consultationFee;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "appointment_status", nullable = false)
+    private AppointmentStatus appointmentStatus = AppointmentStatus.PENDING; 
+  
 
     @Column(name = "is_available", nullable = false, columnDefinition = "BOOLEAN DEFAULT true")
     private Boolean isAvailable = true;
 
-    @Column(name = "profile_completed", nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
-    private Boolean profileCompleted = false;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -132,8 +137,7 @@ public class DoctorsEntity {
     @Column(name = "specialization", nullable = false, length = 100)
     private String specialization;
 
-    @Column
-    private Integer yearsOfExperience;
+  
 
     @Column(length = 100)
     private String previousWorkplace;
@@ -144,10 +148,6 @@ public class DoctorsEntity {
 
     @Column
     private LocalDate resignationDate;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private EmploymentStatus employmentStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -162,7 +162,7 @@ public class DoctorsEntity {
 
     @Column(length = 50)
     private String updatedBy;
-
+ 
     @Column(length = 15)
     private String emergencyContactNumber;
 
@@ -279,14 +279,7 @@ public class DoctorsEntity {
         this.isAvailable = isAvailable;
     }
 
-    public Boolean getProfileCompleted() {
-        return profileCompleted;
-    }
-
-    public void setProfileCompleted(Boolean profileCompleted) {
-        this.profileCompleted = profileCompleted;
-    }
-
+  
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -359,13 +352,7 @@ public class DoctorsEntity {
         this.specialization = specialization;
     }
 
-    public Integer getYearsOfExperience() {
-        return yearsOfExperience;
-    }
-
-    public void setYearsOfExperience(Integer yearsOfExperience) {
-        this.yearsOfExperience = yearsOfExperience;
-    }
+ 
 
     public String getPreviousWorkplace() {
         return previousWorkplace;
@@ -391,13 +378,7 @@ public class DoctorsEntity {
         this.resignationDate = resignationDate;
     }
 
-    public EmploymentStatus getEmploymentStatus() {
-        return employmentStatus;
-    }
-
-    public void setEmploymentStatus(EmploymentStatus employmentStatus) {
-        this.employmentStatus = employmentStatus;
-    }
+   
 
     public EmploymentType getEmploymentType() {
         return employmentType;
@@ -442,6 +423,14 @@ public class DoctorsEntity {
     public DoctorsEntity() {
     }
 
+    public AppointmentStatus getAppointmentStatus() {
+        return appointmentStatus;
+    }
+
+    public void setAppointmentStatus(AppointmentStatus appointmentStatus) {
+        this.appointmentStatus = appointmentStatus;
+    }
+  	
     public DoctorsEntity(Long doctorId, UsersEntity user, List<DoctorAvailabilityEntity> availabilities,
             Integer experienceYears, String hospitalClinicName, String hospitalClinicAddress, String pincode,
             String address, String country, String city, String state, String bio, Double consultationFee,
@@ -449,11 +438,11 @@ public class DoctorsEntity {
             Gender gender, LocalDate dateOfBirth, String licenseNumber, LocalDate licenseIssueDate,
             LocalDate licenseExpiryDate, String qualification, String specialization, Integer yearsOfExperience,
             String previousWorkplace, LocalDate joiningDate, LocalDate resignationDate,
-            EmploymentStatus employmentStatus, EmploymentType employmentType, Boolean isActive, String createdBy,
+             EmploymentType employmentType, Boolean isActive, String createdBy,
             String updatedBy, String emergencyContactNumber) {
         this.doctorId = doctorId;
         this.user = user;
-//        this.availabilities = availabilities;
+//        this.availabilities = availabilities; 
         this.experienceYears = experienceYears;
         this.hospitalClinicName = hospitalClinicName;
         this.hospitalClinicAddress = hospitalClinicAddress;
@@ -465,7 +454,7 @@ public class DoctorsEntity {
         this.bio = bio;
         this.consultationFee = consultationFee;
         this.isAvailable = isAvailable;
-        this.profileCompleted = profileCompleted;
+
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.gender = gender;
@@ -475,11 +464,11 @@ public class DoctorsEntity {
         this.licenseExpiryDate = licenseExpiryDate;
         this.qualification = qualification;
         this.specialization = specialization;
-        this.yearsOfExperience = yearsOfExperience;
+       
         this.previousWorkplace = previousWorkplace;
         this.joiningDate = joiningDate;
         this.resignationDate = resignationDate;
-        this.employmentStatus = employmentStatus;
+       
         this.employmentType = employmentType;
         this.isActive = isActive;
         this.createdBy = createdBy;

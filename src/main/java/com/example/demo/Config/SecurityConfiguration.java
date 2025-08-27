@@ -30,7 +30,7 @@ public class SecurityConfiguration {
     private final UserDetailsServiceImpl userDetailsService;
 
     public SecurityConfiguration(JwtAuthenticationFilter jwtAuthenticationFilter,
-                                  UserDetailsServiceImpl userDetailsService) {
+            UserDetailsServiceImpl userDetailsService) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
     }
@@ -55,13 +55,26 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
+        http
+            // CSRF disable kar diya hai
+            .csrf(csrf -> csrf.disable())
+            
+            // CORS configuration
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            
+            // HTTP requests authorization
             .authorizeHttpRequests(requests -> requests
-                    .requestMatchers("/auth/**", "/pub/**").permitAll()
-                    .anyRequest().authenticated())
-            .sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .requestMatchers("/auth/**", "/pub/**").permitAll()
+                .anyRequest().authenticated())
+            
+            // Session management - stateless
+            .sessionManagement(management -> 
+                management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            
+            // Authentication provider
             .authenticationProvider(authenticationProvider())
+            
+            // JWT filter
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -70,10 +83,21 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        
+        // Allow specific origins (browser ke liye zaroori)
         configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-IP", "X-Location"));
-        configuration.setAllowCredentials(true);
+        
+        // Allow all HTTP methods
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        
+        // Allow all headers
+        configuration.setAllowedHeaders(List.of("*"));
+        
+        // IMPORTANT: Browser requests ke liye false kar diya
+        configuration.setAllowCredentials(false);
+        
+        // Preflight request cache time
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

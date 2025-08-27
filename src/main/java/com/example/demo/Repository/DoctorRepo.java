@@ -3,7 +3,8 @@ package com.example.demo.Repository;
 
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
-import com.example.demo.Enum.EmploymentStatus;
+import com.example.demo.Enum.AppointmentStatus;
+import com.example.demo.Enum.AppointmentStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
 
@@ -17,17 +18,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
-import com.example.demo.Entities.DoctorsEntity;
-import com.example.demo.Entities.UsersEntity;
-
-import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
-	   // ---------- BASIC FINDS ----------
+    // ---------- BASIC FINDS ----------
     Optional<DoctorsEntity> findByLicenseNumber(String licenseNumber);
 
     List<DoctorsEntity> findAll();
@@ -46,13 +40,18 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
     List<DoctorsEntity> findByIsAvailableTrue();
     List<DoctorsEntity> findByIsAvailableFalse();
 
-    List<DoctorsEntity> findByProfileCompletedTrue();
-    List<DoctorsEntity> findByProfileCompletedFalse();
-
     List<DoctorsEntity> findByIsActiveTrue();
     List<DoctorsEntity> findByIsActiveFalse();
     
     List<DoctorsEntity> findByIsAvailableTrueAndIsActiveTrue();
+    
+    // ---------- APPOINTMENT STATUS QUERIES ----------
+    List<DoctorsEntity> findByAppointmentStatus(AppointmentStatus appointmentStatus);
+    long countByAppointmentStatus(AppointmentStatus appointmentStatus);
+    
+    // Combined appointment status queries
+    List<DoctorsEntity> findByAppointmentStatusAndIsActiveTrue(AppointmentStatus appointmentStatus);
+    List<DoctorsEntity> findByAppointmentStatusAndIsAvailableTrue(AppointmentStatus appointmentStatus);
 
     // ---------- RANGE QUERIES ----------
     List<DoctorsEntity> findByExperienceYearsGreaterThanEqual(Integer years);
@@ -71,7 +70,6 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
 
     // ---------- ENUM FILTERS ----------
     List<DoctorsEntity> findByGender(Gender gender);
-    List<DoctorsEntity> findByEmploymentStatus(EmploymentStatus status);
     List<DoctorsEntity> findByEmploymentType(EmploymentType type);
 
     // ---------- COMBINATION QUERIES ----------
@@ -79,7 +77,7 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
     List<DoctorsEntity> findBySpecializationAndCity(String specialization, String city);
     List<DoctorsEntity> findBySpecializationAndIsAvailableTrue(String specialization);
     List<DoctorsEntity> findByCityAndIsAvailableTrue(String city);
-    List<DoctorsEntity> findByEmploymentStatusAndEmploymentType(EmploymentStatus status, EmploymentType type);
+   
 
     // ---------- SEARCH-LIKE QUERIES ----------
     List<DoctorsEntity> findByHospitalClinicNameContainingIgnoreCase(String keyword);
@@ -108,4 +106,11 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
 
     @Query("SELECT DISTINCT d.specialization FROM DoctorsEntity d WHERE d.specialization IS NOT NULL ORDER BY d.specialization")
     List<String> findAllUniqueSpecializations();
+    
+    // ------ APPOINTMENT STATUS WITH PAGINATION ------
+    Page<DoctorsEntity> findByAppointmentStatus(AppointmentStatus appointmentStatus, Pageable pageable);
+    
+    // ------ APPOINTMENT STATUS COMBINATIONS ------
+    List<DoctorsEntity> findByAppointmentStatusAndSpecialization(AppointmentStatus appointmentStatus, String specialization);
+    List<DoctorsEntity> findByAppointmentStatusAndCity(AppointmentStatus appointmentStatus, String city);
 }

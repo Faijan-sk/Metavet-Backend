@@ -1,12 +1,15 @@
 package com.example.demo.Controller;
 
+
 import com.example.demo.Dto.DoctorDtoForClient;
+import com.example.demo.Dto.DoctorDtoForAdmin;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Service.DoctorService;
-import com.example.demo.Enum.EmploymentStatus;
+import com.example.demo.Enum.AppointmentStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
+import com.example.demo.Repository.UserRepo;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -34,6 +37,9 @@ public class DoctorController {
 
     @Autowired
     private DoctorService doctorService;
+    
+    @Autowired
+    private UserRepo userRepository;
 
     // ==================== CRUD OPERATIONS ====================
 
@@ -55,10 +61,39 @@ public class DoctorController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+    
+    @PostMapping("/create-with-user/{userId}")
+    public ResponseEntity<Map<String, Object>> createDoctorWithUserId(
+            @PathVariable Long userId,
+            @Valid @RequestBody DoctorsEntity doctor) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // User validation
+            Optional<UsersEntity> userOptional = userRepository.findById(userId);
+            if (userOptional.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "User not found");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+            
+            doctor.setUser(userOptional.get());
+            DoctorsEntity savedDoctor = doctorService.createDoctor(doctor);
+            response.put("success", true);
+            response.put("message", "Doctor profile created successfully");
+            response.put("data", savedDoctor);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Error creating doctor profile: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    
 
     /**
      * Update doctors profile by userId
-     */
+     */	
     @PutMapping("/user/{userId}")
     public ResponseEntity<Map<String, Object>> updateDoctorProfile(
             @PathVariable Long userId,
@@ -256,6 +291,20 @@ public class DoctorController {
     }
 
     // ==================== AVAILABILITY AND STATUS ENDPOINTS ====================
+
+    /**
+     * Get available doctors
+     */
+    @GetMapping("/available")
+    public ResponseEntity<Map<String, Object>> getAvailableDoctors() {
+        Map<String, Object> response = new HashMap<>();
+        List<DoctorsEntity> doctors = doctorService.getAvailableDoctors();
+        response.put("success", true);
+        response.put("data", doctors);
+        response.put("count", doctors.size());
+        return ResponseEntity.ok(response);
+    }
+
     /**
      * Get unavailable doctors
      */
@@ -295,29 +344,116 @@ public class DoctorController {
         return ResponseEntity.ok(response);
     }
 
+    // ==================== APPOINTMENT STATUS ENDPOINTS ====================
+
     /**
-     * Get doctors with completed profiles
+     * Get doctors by appointment status
      */
-    @GetMapping("/profiles/completed")
-    public ResponseEntity<Map<String, Object>> getDoctorsWithCompletedProfiles() {
+    @GetMapping("/appointment-status/{status}")
+    public ResponseEntity<Map<String, Object>> getDoctorsByAppointmentStatus(@PathVariable AppointmentStatus status) {
         Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsWithCompletedProfiles();
+        List<DoctorsEntity> doctors = doctorService.getDoctorsByAppointmentStatus(status);
         response.put("success", true);
         response.put("data", doctors);
         response.put("count", doctors.size());
+        response.put("appointmentStatus", status);
         return ResponseEntity.ok(response);
     }
 
     /**
-     * Get doctors with incomplete profiles
+     * Count doctors by appointment status
      */
-    @GetMapping("/profiles/incomplete")
-    public ResponseEntity<Map<String, Object>> getDoctorsWithIncompleteProfiles() {
+    @GetMapping("/appointment-status/{status}/count")
+    public ResponseEntity<Map<String, Object>> countDoctorsByAppointmentStatus(@PathVariable AppointmentStatus status) {
         Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsWithIncompleteProfiles();
+        long count = doctorService.countDoctorsByAppointmentStatus(status);
+        response.put("success", true);
+        response.put("count", count);
+        response.put("appointmentStatus", status);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Update doctor appointment status
+     */
+    @PatchMapping("/{doctorId}/appointment-status")
+    public ResponseEntity<Map<String, Object>> updateDoctorAppointmentStatus(
+            @PathVariable Long doctorId,
+            @RequestParam AppointmentStatus status) {
+        Map<String, Object> response = new HashMap<>();
+        boolean updated = doctorService.updateDoctorAppointmentStatus(doctorId, status);
+        if (updated) {
+            response.put("success", true);
+            response.put("message", "Doctor appointment status updated successfully");
+            response.put("doctorId", doctorId);
+            response.put("appointmentStatus", status);
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("success", false);
+            response.put("message", "Doctor not found");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+    }
+
+    /**
+     * Get active doctors by appointment status
+     */
+    @GetMapping("/active/appointment-status/{status}")
+    public ResponseEntity<Map<String, Object>> getActiveDoctorsByAppointmentStatus(@PathVariable AppointmentStatus status) {
+        Map<String, Object> response = new HashMap<>();
+        List<DoctorsEntity> doctors = doctorService.getActiveDoctorsByAppointmentStatus(status);
         response.put("success", true);
         response.put("data", doctors);
         response.put("count", doctors.size());
+        response.put("appointmentStatus", status);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get available doctors by appointment status
+     */
+    @GetMapping("/available/appointment-status/{status}")
+    public ResponseEntity<Map<String, Object>> getAvailableDoctorsByAppointmentStatus(@PathVariable AppointmentStatus status) {
+        Map<String, Object> response = new HashMap<>();
+        List<DoctorsEntity> doctors = doctorService.getAvailableDoctorsByAppointmentStatus(status);
+        response.put("success", true);
+        response.put("data", doctors);
+        response.put("count", doctors.size());
+        response.put("appointmentStatus", status);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get doctors by appointment status and specialization
+     */
+    @GetMapping("/appointment-status/{status}/specialization/{specialization}")
+    public ResponseEntity<Map<String, Object>> getDoctorsByAppointmentStatusAndSpecialization(
+            @PathVariable AppointmentStatus status,
+            @PathVariable String specialization) {
+        Map<String, Object> response = new HashMap<>();
+        List<DoctorsEntity> doctors = doctorService.getDoctorsByAppointmentStatusAndSpecialization(status, specialization);
+        response.put("success", true);
+        response.put("data", doctors);
+        response.put("count", doctors.size());
+        response.put("appointmentStatus", status);
+        response.put("specialization", specialization);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get doctors by appointment status and city
+     */
+    @GetMapping("/appointment-status/{status}/city/{city}")
+    public ResponseEntity<Map<String, Object>> getDoctorsByAppointmentStatusAndCity(
+            @PathVariable AppointmentStatus status,
+            @PathVariable String city) {
+        Map<String, Object> response = new HashMap<>();
+        List<DoctorsEntity> doctors = doctorService.getDoctorsByAppointmentStatusAndCity(status, city);
+        response.put("success", true);
+        response.put("data", doctors);
+        response.put("count", doctors.size());
+        response.put("appointmentStatus", status);
+        response.put("city", city);
         return ResponseEntity.ok(response);
     }
 
@@ -407,19 +543,6 @@ public class DoctorController {
     }
 
     /**
-     * Get doctors by employment status
-     */
-    @GetMapping("/employment-status/{status}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByEmploymentStatus(@PathVariable EmploymentStatus status) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByEmploymentStatus(status);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
      * Get doctors by employment type
      */
     @GetMapping("/employment-type/{type}")
@@ -468,21 +591,6 @@ public class DoctorController {
             @PathVariable String specialization, @PathVariable String city) {
         Map<String, Object> response = new HashMap<>();
         List<DoctorsEntity> doctors = doctorService.getDoctorsBySpecializationAndCity(specialization, city);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get doctors by employment status and type
-     */
-    @GetMapping("/employment")
-    public ResponseEntity<Map<String, Object>> getDoctorsByEmploymentStatusAndType(
-            @RequestParam EmploymentStatus status,
-            @RequestParam EmploymentType type) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByEmploymentStatusAndType(status, type);
         response.put("success", true);
         response.put("data", doctors);
         response.put("count", doctors.size());
@@ -547,83 +655,30 @@ public class DoctorController {
         return ResponseEntity.ok(response);
     }
 
-    // ==================== PAGINATION METHODS ====================
+  
 
     /**
-     * Get all doctors with pagination
+     * Get doctors by appointment status with pagination
      */
-    @GetMapping("/paginated")
-    public ResponseEntity<Map<String, Object>> getDoctorsWithPagination(
+    @GetMapping("/appointment-status/{status}/paginated")
+    public ResponseEntity<Map<String, Object>> getDoctorsByAppointmentStatusWithPagination(
+            @PathVariable AppointmentStatus status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Page<DoctorsEntity> doctorPage = doctorService.getDoctorsWithPagination(page, size);
+            Page<DoctorsEntity> doctorPage = doctorService.getDoctorsByAppointmentStatusWithPagination(status, page, size);
             response.put("success", true);
             response.put("data", doctorPage.getContent());
             response.put("currentPage", doctorPage.getNumber());
             response.put("totalPages", doctorPage.getTotalPages());
             response.put("totalElements", doctorPage.getTotalElements());
             response.put("size", doctorPage.getSize());
-            response.put("first", doctorPage.isFirst());
-            response.put("last", doctorPage.isLast());
-            response.put("empty", doctorPage.isEmpty());
+            response.put("appointmentStatus", status);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("success", false);
-            response.put("message", "Error fetching paginated doctors: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-
-    /**
-     * Get doctors by city with pagination
-     */
-    @GetMapping("/city/{city}/paginated")
-    public ResponseEntity<Map<String, Object>> getDoctorsByCityWithPagination(
-            @PathVariable String city,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Map<String, Object> response = new HashMap<>();
-        try {
-            Page<DoctorsEntity> doctorPage = doctorService.getDoctorsByCityWithPagination(city, page, size);
-            response.put("success", true);
-            response.put("data", doctorPage.getContent());
-            response.put("currentPage", doctorPage.getNumber());
-            response.put("totalPages", doctorPage.getTotalPages());
-            response.put("totalElements", doctorPage.getTotalElements());
-            response.put("size", doctorPage.getSize());
-            response.put("city", city);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching paginated doctors by city: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-
-    /**
-     * Get doctors by specialization with pagination
-     */
-    @GetMapping("/specialization/{specialization}/paginated")
-    public ResponseEntity<Map<String, Object>> getDoctorsBySpecializationWithPagination(
-            @PathVariable String specialization,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Map<String, Object> response = new HashMap<>();
-        try {
-            Page<DoctorsEntity> doctorPage = doctorService.getDoctorsBySpecializationWithPagination(specialization, page, size);
-            response.put("success", true);
-            response.put("data", doctorPage.getContent());
-            response.put("currentPage", doctorPage.getNumber());
-            response.put("totalPages", doctorPage.getTotalPages());
-            response.put("totalElements", doctorPage.getTotalElements());
-            response.put("size", doctorPage.getSize());
-            response.put("specialization", specialization);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching paginated doctors by specialization: " + e.getMessage());
+            response.put("message", "Error fetching paginated doctors by appointment status: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
@@ -681,28 +736,6 @@ public class DoctorController {
     }
 
     /**
-     * Update doctor profile completion status
-     */
-    @PatchMapping("/{doctorId}/profile-completion")
-    public ResponseEntity<Map<String, Object>> updateProfileCompletionStatus(
-            @PathVariable Long doctorId,
-            @RequestParam boolean isCompleted) {
-        Map<String, Object> response = new HashMap<>();
-        boolean updated = doctorService.updateProfileCompletionStatus(doctorId, isCompleted);
-        if (updated) {
-            response.put("success", true);
-            response.put("message", "Profile completion status updated successfully");
-            response.put("doctorId", doctorId);
-            response.put("profileCompleted", isCompleted);
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        }
-    }
-
-    /**
      * Update consultation fee
      */
     @PatchMapping("/{doctorId}/fee")
@@ -750,6 +783,8 @@ public class DoctorController {
         }
     }
     
+    // ==================== SPECIALIZATION ENDPOINTS ====================
+
     /**
      * Get all unique specializations for active doctors only
      */
@@ -789,6 +824,54 @@ public class DoctorController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    // ==================== CUSTOM DTO ENDPOINTS ====================
+
+    /**
+     * Get available and active doctors for clients (DTO format)
+     */
+    @GetMapping("/client/available-active")
+    public ResponseEntity<Map<String, Object>> getAvailableAndActiveDoctorsForClient() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<DoctorDtoForClient> doctors = doctorService.getAvailableAndActive();
+            response.put("success", true);
+            response.put("message", "Available and active doctors retrieved successfully");
+            response.put("data", doctors);
+            response.put("count", doctors.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Error fetching available and active doctors: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
     
-    
-}
+    /**
+     * Get doctors by city with pagination
+     */
+    @GetMapping("/city/{city}/paginated")
+    public ResponseEntity<Map<String, Object>> getDoctorsByCityWithPagination(
+            @PathVariable String city,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Page<DoctorsEntity> doctorPage = doctorService.getDoctorsByCityWithPagination(city, page, size);
+            response.put("success", true);
+            response.put("data", doctorPage.getContent());
+            response.put("currentPage", doctorPage.getNumber());
+            response.put("totalPages", doctorPage.getTotalPages());
+            response.put("totalElements", doctorPage.getTotalElements());
+            response.put("size", doctorPage.getSize());
+            response.put("city", city);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Error fetching paginated doctors by city: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    }
