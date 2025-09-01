@@ -1,5 +1,7 @@
 package com.example.demo.Dto;
 
+import com.example.demo.Enum.DoctorProfileStatus;
+
 public class DoctorDtoForClient {
 	
 /*
@@ -24,6 +26,7 @@ public class DoctorDtoForClient {
 	private String licenseNumber;
 	private String qualification;
 	private String specialization;
+	 private DoctorProfileStatus doctorProfileStatus;
 	
 	
 	
@@ -37,7 +40,7 @@ public DoctorDtoForClient() {
 public DoctorDtoForClient(Long docotrUid, String email, String phoneNumber, String firstName, String lastName,
                           Long doctorId, Integer experienceYears, String address, String city, String state,
                           String bio, Double consultationFee, String licenseNumber, String qualification,
-                          String specialization, Integer yearsOfExperience) {
+                          String specialization, Integer yearsOfExperience,DoctorProfileStatus doctorProfileStatus) {
     this.docotrUid = docotrUid;
     this.email = email;
     this.phoneNumber = phoneNumber;
@@ -53,6 +56,7 @@ public DoctorDtoForClient(Long docotrUid, String email, String phoneNumber, Stri
     this.licenseNumber = licenseNumber;
     this.qualification = qualification;
     this.specialization = specialization;
+    this.doctorProfileStatus = doctorProfileStatus;
 
 }
 
@@ -176,7 +180,13 @@ public void setSpecialization(String specialization) {
 	this.specialization = specialization;
 }
 
+public DoctorProfileStatus getDoctorProfileStatus() {
+	return doctorProfileStatus;
+}
 
+public void setDoctorProfileStatus(DoctorProfileStatus doctorProfileStatus) {
+	this.doctorProfileStatus = doctorProfileStatus;
+}
 
 
 

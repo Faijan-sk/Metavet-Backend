@@ -149,19 +149,19 @@ public class DoctorAuthController {
      * Get doctor by ID
      * GET /api/doctors/{doctorId}
      */
-    @GetMapping("/{doctorId}")
-    public ResponseEntity<ApiResponse<DoctorsEntity>> getDoctorById(@PathVariable Long doctorId) {
-        try {
-            return doctorService.getDoctorById(doctorId)
-                    .map(doctor -> ResponseEntity.ok(
-                            new ApiResponse<>(true, "Doctor found", doctor)))
-                    .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body(new ApiResponse<>(false, "Doctor not found with ID: " + doctorId, null)));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Error fetching doctor: " + e.getMessage(), null));
-        }
-    }
+//    @GetMapping("/{doctorId}")
+//    public ResponseEntity<ApiResponse<DoctorsEntity>> getDoctorById(@PathVariable Long doctorId) {
+//        try {
+//            return doctorService.getDoctorById(doctorId)
+//                    .map(doctor -> ResponseEntity.ok(
+//                            new ApiResponse<>(true, "Doctor found", doctor)))
+//                    .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
+//                            .body(new ApiResponse<>(false, "Doctor not found with ID: " + doctorId, null)));
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body(new ApiResponse<>(false, "Error fetching doctor: " + e.getMessage(), null));
+//        }
+//    }
 
     /**
      * Update doctor profile status (Admin use)
@@ -213,6 +213,82 @@ public class DoctorAuthController {
         return ResponseEntity.ok(response);
     }
  
+ 
+ @GetMapping("/doctors/status/{status}")
+ public ResponseEntity<?> getDoctorsByProfileStatus(@PathVariable DoctorProfileStatus status) {
+     try {
+         List<DoctorsEntity> doctors = doctorService.getDoctorsByProfileStatus(status);
+         return ResponseEntity.ok(Map.of(
+             "success", true,
+             "count", doctors.size(),
+             "data", doctors
+         ));
+     } catch (Exception e) {
+         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+             "success", false,
+             "message", "Error retrieving doctors: " + e.getMessage()
+         ));
+     }
+ }
+
+//0-------------- get Doctor from id 
+ /**
+  * Get doctor by ID
+  * GET /api/doctors/{doctorId}
+  */
+ @GetMapping("/doctors/{doctorId}")
+ public ResponseEntity<?> getDoctorById(@PathVariable Long doctorId) {
+     try {
+         Optional<DoctorsEntity> doctor = doctorService.getDoctorById(doctorId);
+         if (doctor.isPresent()) {
+             return ResponseEntity.ok(Map.of(
+                 "success", true,
+                 "data", doctor.get()
+             ));
+         } else {
+             return ResponseEntity.notFound().build();
+         }
+     } catch (Exception e) {
+         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+             "success", false,
+             "message", "Error retrieving doctor: " + e.getMessage()
+         ));
+     }
+ }
+ 
+ 
+ //------------- status update of doctor 
+ /**
+  * Update doctor profile status
+  * PUT /api/doctors/{doctorId}/status
+  */
+ @PutMapping("/doctors/{doctorId}/status")
+ public ResponseEntity<?> updateDoctorStatus(@PathVariable Long doctorId,
+                                           @RequestBody Map<String, String> statusRequest) {
+     try {
+         DoctorProfileStatus status = DoctorProfileStatus.valueOf(statusRequest.get("status"));
+         boolean updated = doctorService.updateDoctorProfileStatus(doctorId, status);
+         	
+         if (updated) {
+             return ResponseEntity.ok(Map.of(
+                 "success", true,
+                 "message", "Doctor status updated successfully"
+             ));
+         } else {
+             return ResponseEntity.notFound().build();
+         }
+     } catch (IllegalArgumentException e) {
+         return ResponseEntity.badRequest().body(Map.of(
+             "success", false,
+             "message", "Invalid status value. Valid values: PENDING, APPROVED, REJECTED"
+         ));
+     } catch (Exception e) {
+         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+             "success", false,
+             "message", "Failed to update status: " + e.getMessage()
+         ));
+     }
+ }
 
   
    

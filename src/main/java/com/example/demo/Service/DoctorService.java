@@ -884,6 +884,7 @@ public class DoctorService {
         dto.setLicenseNumber(doctor.getLicenseNumber());
         dto.setQualification(doctor.getQualification());
         dto.setSpecialization(doctor.getSpecialization());
+        dto.setDoctorProfileStatus(doctor.getDoctorProfileStatus());
 
         return dto;
     }

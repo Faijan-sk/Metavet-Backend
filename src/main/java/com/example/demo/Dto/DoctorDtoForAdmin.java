@@ -73,7 +73,7 @@ public class DoctorDtoForAdmin {
         this.consultationFee = consultationFee;
         this.licenseNumber = licenseNumber;
         this.qualification = qualification;
-        this.specialization = specialization;
+        this.specialization = specialization;		
         this.profileCompleted = profileCompleted;
         this.licenseIssueDate = licenseIssueDate;
         this.licenseExpiryDate = licenseExpiryDate;
