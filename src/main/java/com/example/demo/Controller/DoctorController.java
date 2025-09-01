@@ -1,220 +1,223 @@
 package com.example.demo.Controller;
 
-
-import com.example.demo.Dto.DoctorDtoForClient;
 import com.example.demo.Dto.DoctorDtoForAdmin;
+import com.example.demo.Dto.DoctorDtoForClient;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
-import com.example.demo.Service.DoctorService;
-import com.example.demo.Enum.AppointmentStatus;
+import com.example.demo.Enum.DoctorProfileStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
+import com.example.demo.Service.DoctorService;
 import com.example.demo.Repository.UserRepo;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
 
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/doctors")
-@Validated
 @CrossOrigin(origins = "*")
 public class DoctorController {
 
     @Autowired
     private DoctorService doctorService;
-    
+
     @Autowired
     private UserRepo userRepository;
 
-    // ==================== CRUD OPERATIONS ====================
+    // ==================== BASIC CRUD OPERATIONS ====================
 
     /**
-     * Create a new doctors profile
+     * Create a new doctor profile
+     * POST /api/doctors
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createDoctor(@Valid @RequestBody DoctorsEntity doctor) {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<?> createDoctor(@Valid @RequestBody DoctorsEntity doctor) {
         try {
-            DoctorsEntity savedDoctor = doctorService.createDoctor(doctor);
-            response.put("success", true);
-            response.put("message", "Doctor profile created successfully");
-            response.put("data", savedDoctor);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error creating doctor profile: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-    
-    @PostMapping("/create-with-user/{userId}")
-    public ResponseEntity<Map<String, Object>> createDoctorWithUserId(
-            @PathVariable Long userId,
-            @Valid @RequestBody DoctorsEntity doctor) {
-        Map<String, Object> response = new HashMap<>();
-        try {
-            // User validation
-            Optional<UsersEntity> userOptional = userRepository.findById(userId);
-            if (userOptional.isEmpty()) {
-                response.put("success", false);
-                response.put("message", "User not found");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-            }
+            DoctorsEntity savedDoctor = doctorService.createDoctorEnhanced(doctor);
             
-            doctor.setUser(userOptional.get());
-            DoctorsEntity savedDoctor = doctorService.createDoctor(doctor);
-            response.put("success", true);
-            response.put("message", "Doctor profile created successfully");
-            response.put("data", savedDoctor);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            // Explicitly return 201 with proper headers
+            return ResponseEntity.status(201)
+                .header("Content-Type", "application/json")
+                .body(Map.of(
+                    "success", true,
+                    "message", "Doctor profile created successfully",
+                    "data", savedDoctor
+                ));
+                
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(400)
+                .header("Content-Type", "application/json")
+                .body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+                ));
         } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error creating doctor profile: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            return ResponseEntity.status(500)
+                .header("Content-Type", "application/json")
+                .body(Map.of(
+                    "success", false,
+                    "message", "Failed to create doctor profile: " + e.getMessage()
+                ));
         }
     }
-    
-    
 
     /**
-     * Update doctors profile by userId
-     */	
+     * Update doctor profile by user ID
+     * PUT /api/doctors/user/{userId}
+     */
     @PutMapping("/user/{userId}")
-    public ResponseEntity<Map<String, Object>> updateDoctorProfile(
-            @PathVariable Long userId,
-            @Valid @RequestBody DoctorsEntity doctorRequest) {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<?> updateDoctorProfile(@PathVariable Long userId, 
+                                               @Valid @RequestBody DoctorsEntity doctorRequest) {
         try {
             DoctorsEntity updatedDoctor = doctorService.updateDoctorProfile(userId, doctorRequest);
             if (updatedDoctor != null) {
-                response.put("success", true);
-                response.put("message", "Doctor profile updated successfully");
-                response.put("data", updatedDoctor);
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Doctor profile updated successfully",
+                    "data", updatedDoctor
+                ));
             } else {
-                response.put("success", false);
-                response.put("message", "User not found, not a doctor, or license number already exists");
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "User not found, not a doctor, or license number already exists"
+                ));
             }
         } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error updating doctor profile: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Failed to update doctor profile: " + e.getMessage()
+            ));
         }
     }
 
     /**
      * Get doctor by ID
+     * GET /api/doctors/{doctorId}
      */
     @GetMapping("/{doctorId}")
-    public ResponseEntity<Map<String, Object>> getDoctorById(@PathVariable Long doctorId) {
-        Map<String, Object> response = new HashMap<>();
-        Optional<DoctorsEntity> doctor = doctorService.getDoctorById(doctorId);
-        if (doctor.isPresent()) {
-            response.put("success", true);
-            response.put("data", doctor.get());
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    public ResponseEntity<?> getDoctorById(@PathVariable Long doctorId) {
+        try {
+            Optional<DoctorsEntity> doctor = doctorService.getDoctorById(doctorId);
+            if (doctor.isPresent()) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", doctor.get()
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctor: " + e.getMessage()
+            ));
         }
     }
 
     /**
      * Get all doctors
+     * GET /api/doctors
      */
     @GetMapping
-    public ResponseEntity<Map<String, Object>> getAllDoctors() {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<?> getAllDoctors() {
         try {
             List<DoctorsEntity> doctors = doctorService.getAllDoctors();
-            response.put("success", true);
-            response.put("data", doctors);
-            response.put("count", doctors.size());
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
         } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching doctors: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctors: " + e.getMessage()
+            ));
         }
     }
 
     /**
      * Update doctor
+     * PUT /api/doctors/{doctorId}
      */
     @PutMapping("/{doctorId}")
-    public ResponseEntity<Map<String, Object>> updateDoctor(
-            @PathVariable Long doctorId,
-            @Valid @RequestBody DoctorsEntity updatedDoctor) {
-        Map<String, Object> response = new HashMap<>();
+    public ResponseEntity<?> updateDoctor(@PathVariable Long doctorId, 
+                                        @Valid @RequestBody DoctorsEntity updatedDoctor) {
         try {
             DoctorsEntity doctor = doctorService.updateDoctor(doctorId, updatedDoctor);
             if (doctor != null) {
-                response.put("success", true);
-                response.put("message", "Doctor updated successfully");
-                response.put("data", doctor);
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Doctor updated successfully",
+                    "data", doctor
+                ));
             } else {
-                response.put("success", false);
-                response.put("message", "Doctor not found");
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+                return ResponseEntity.notFound().build();
             }
         } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error updating doctor: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Failed to update doctor: " + e.getMessage()
+            ));
         }
     }
 
     /**
-     * Delete doctor
+     * Delete doctor (hard delete)
+     * DELETE /api/doctors/{doctorId}
      */
     @DeleteMapping("/{doctorId}")
-    public ResponseEntity<Map<String, Object>> deleteDoctor(@PathVariable Long doctorId) {
-        Map<String, Object> response = new HashMap<>();
-        boolean deleted = doctorService.deleteDoctor(doctorId);
-        if (deleted) {
-            response.put("success", true);
-            response.put("message", "Doctor deleted successfully");
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    public ResponseEntity<?> deleteDoctor(@PathVariable Long doctorId) {
+        try {
+            boolean deleted = doctorService.deleteDoctor(doctorId);
+            if (deleted) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Doctor deleted successfully"
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Failed to delete doctor: " + e.getMessage()
+            ));
         }
     }
 
     /**
      * Soft delete doctor
+     * PUT /api/doctors/{doctorId}/soft-delete
      */
-    @PatchMapping("/{doctorId}/deactivate")
-    public ResponseEntity<Map<String, Object>> softDeleteDoctor(@PathVariable Long doctorId) {
-        Map<String, Object> response = new HashMap<>();
-        boolean deactivated = doctorService.softDeleteDoctor(doctorId);
-        if (deactivated) {
-            response.put("success", true);
-            response.put("message", "Doctor deactivated successfully");
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    @PutMapping("/{doctorId}/soft-delete")
+    public ResponseEntity<?> softDeleteDoctor(@PathVariable Long doctorId) {
+        try {
+            boolean deleted = doctorService.softDeleteDoctor(doctorId);
+            if (deleted) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Doctor deactivated successfully"
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Failed to deactivate doctor: " + e.getMessage()
+            ));
         }
     }
 
@@ -222,656 +225,609 @@ public class DoctorController {
 
     /**
      * Get doctor by license number
+     * GET /api/doctors/license/{licenseNumber}
      */
     @GetMapping("/license/{licenseNumber}")
-    public ResponseEntity<Map<String, Object>> getDoctorByLicenseNumber(@PathVariable String licenseNumber) {
-        Map<String, Object> response = new HashMap<>();
-        Optional<DoctorsEntity> doctor = doctorService.getDoctorByLicenseNumber(licenseNumber);
-        if (doctor.isPresent()) {
-            response.put("success", true);
-            response.put("data", doctor.get());
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found with license number: " + licenseNumber);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    public ResponseEntity<?> getDoctorByLicense(@PathVariable String licenseNumber) {
+        try {
+            Optional<DoctorsEntity> doctor = doctorService.getDoctorByLicenseNumber(licenseNumber);
+            if (doctor.isPresent()) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", doctor.get()
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctor: " + e.getMessage()
+            ));
         }
     }
 
     /**
      * Get doctors by specialization
+     * GET /api/doctors/specialization/{specialization}
      */
     @GetMapping("/specialization/{specialization}")
-    public ResponseEntity<Map<String, Object>> getDoctorsBySpecialization(@PathVariable String specialization) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsBySpecialization(specialization);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getDoctorsBySpecialization(@PathVariable String specialization) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getDoctorsBySpecialization(specialization);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctors: " + e.getMessage()
+            ));
+        }
     }
 
     /**
      * Get doctors by city
+     * GET /api/doctors/city/{city}
      */
     @GetMapping("/city/{city}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByCity(@PathVariable String city) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByCity(city);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getDoctorsByCity(@PathVariable String city) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getDoctorsByCity(city);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctors: " + e.getMessage()
+            ));
+        }
     }
 
     /**
      * Get doctors by state
+     * GET /api/doctors/state/{state}
      */
     @GetMapping("/state/{state}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByState(@PathVariable String state) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByState(state);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getDoctorsByState(@PathVariable String state) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getDoctorsByState(state);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctors: " + e.getMessage()
+            ));
+        }
     }
-
-    /**
-     * Get doctors by country
-     */
-    @GetMapping("/country/{country}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByCountry(@PathVariable String country) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByCountry(country);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    // ==================== AVAILABILITY AND STATUS ENDPOINTS ====================
 
     /**
      * Get available doctors
+     * GET /api/doctors/available
      */
     @GetMapping("/available")
-    public ResponseEntity<Map<String, Object>> getAvailableDoctors() {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getAvailableDoctors();
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get unavailable doctors
-     */
-    @GetMapping("/unavailable")
-    public ResponseEntity<Map<String, Object>> getUnavailableDoctors() {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getUnavailableDoctors();
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getAvailableDoctors() {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getAvailableDoctors();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving available doctors: " + e.getMessage()
+            ));
+        }
     }
 
     /**
      * Get active doctors
+     * GET /api/doctors/active
      */
     @GetMapping("/active")
-    public ResponseEntity<Map<String, Object>> getActiveDoctors() {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getActiveDoctors();
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getActiveDoctors() {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getActiveDoctors();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving active doctors: " + e.getMessage()
+            ));
+        }
     }
 
-    /**
-     * Get inactive doctors
-     */
-    @GetMapping("/inactive")
-    public ResponseEntity<Map<String, Object>> getInactiveDoctors() {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getInactiveDoctors();
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    // ==================== APPOINTMENT STATUS ENDPOINTS ====================
+    // ==================== PROFILE STATUS ENDPOINTS ====================
 
     /**
-     * Get doctors by appointment status
+     * Get doctors by profile status
+     * GET /api/doctors/status/{status}
      */
-    @GetMapping("/appointment-status/{status}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByAppointmentStatus(@PathVariable AppointmentStatus status) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByAppointmentStatus(status);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("appointmentStatus", status);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Count doctors by appointment status
-     */
-    @GetMapping("/appointment-status/{status}/count")
-    public ResponseEntity<Map<String, Object>> countDoctorsByAppointmentStatus(@PathVariable AppointmentStatus status) {
-        Map<String, Object> response = new HashMap<>();
-        long count = doctorService.countDoctorsByAppointmentStatus(status);
-        response.put("success", true);
-        response.put("count", count);
-        response.put("appointmentStatus", status);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Update doctor appointment status
-     */
-    @PatchMapping("/{doctorId}/appointment-status")
-    public ResponseEntity<Map<String, Object>> updateDoctorAppointmentStatus(
-            @PathVariable Long doctorId,
-            @RequestParam AppointmentStatus status) {
-        Map<String, Object> response = new HashMap<>();
-        boolean updated = doctorService.updateDoctorAppointmentStatus(doctorId, status);
-        if (updated) {
-            response.put("success", true);
-            response.put("message", "Doctor appointment status updated successfully");
-            response.put("doctorId", doctorId);
-            response.put("appointmentStatus", status);
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    @GetMapping("/status/{status}")
+    public ResponseEntity<?> getDoctorsByProfileStatus(@PathVariable DoctorProfileStatus status) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getDoctorsByProfileStatus(status);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctors: " + e.getMessage()
+            ));
         }
     }
 
     /**
-     * Get active doctors by appointment status
+     * Update doctor profile status
+     * PUT /api/doctors/{doctorId}/status
      */
-    @GetMapping("/active/appointment-status/{status}")
-    public ResponseEntity<Map<String, Object>> getActiveDoctorsByAppointmentStatus(@PathVariable AppointmentStatus status) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getActiveDoctorsByAppointmentStatus(status);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("appointmentStatus", status);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get available doctors by appointment status
-     */
-    @GetMapping("/available/appointment-status/{status}")
-    public ResponseEntity<Map<String, Object>> getAvailableDoctorsByAppointmentStatus(@PathVariable AppointmentStatus status) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getAvailableDoctorsByAppointmentStatus(status);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("appointmentStatus", status);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get doctors by appointment status and specialization
-     */
-    @GetMapping("/appointment-status/{status}/specialization/{specialization}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByAppointmentStatusAndSpecialization(
-            @PathVariable AppointmentStatus status,
-            @PathVariable String specialization) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByAppointmentStatusAndSpecialization(status, specialization);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("appointmentStatus", status);
-        response.put("specialization", specialization);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get doctors by appointment status and city
-     */
-    @GetMapping("/appointment-status/{status}/city/{city}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByAppointmentStatusAndCity(
-            @PathVariable AppointmentStatus status,
-            @PathVariable String city) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByAppointmentStatusAndCity(status, city);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("appointmentStatus", status);
-        response.put("city", city);
-        return ResponseEntity.ok(response);
-    }
-
-    // ==================== EXPERIENCE AND FEE FILTERS ====================
-
-    /**
-     * Get doctors with minimum experience
-     */
-    @GetMapping("/experience/min/{years}")
-    public ResponseEntity<Map<String, Object>> getDoctorsWithMinimumExperience(
-            @PathVariable @Min(0) @Max(50) Integer years) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsWithMinimumExperience(years);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get doctors with experience in range
-     */
-    @GetMapping("/experience/range")
-    public ResponseEntity<Map<String, Object>> getDoctorsWithExperienceRange(
-            @RequestParam @Min(0) @Max(50) Integer minYears,
-            @RequestParam @Min(0) @Max(50) Integer maxYears) {
-        Map<String, Object> response = new HashMap<>();
-        if (minYears > maxYears) {
-            response.put("success", false);
-            response.put("message", "Minimum years cannot be greater than maximum years");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    @PutMapping("/{doctorId}/status")
+    public ResponseEntity<?> updateDoctorStatus(@PathVariable Long doctorId,
+                                              @RequestBody Map<String, String> statusRequest) {
+        try {
+            DoctorProfileStatus status = DoctorProfileStatus.valueOf(statusRequest.get("status"));
+            boolean updated = doctorService.updateDoctorProfileStatus(doctorId, status);
+            
+            if (updated) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Doctor status updated successfully"
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Invalid status value. Valid values: PENDING, APPROVED, REJECTED"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Failed to update status: " + e.getMessage()
+            ));
         }
-        List<DoctorsEntity> doctors = doctorService.getDoctorsWithExperienceRange(minYears, maxYears);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
     }
 
     /**
-     * Get doctors with consultation fee less than or equal to amount
+     * Approve doctor profile (Admin endpoint)
+     * PUT /api/doctors/{doctorId}/approve
      */
-    @GetMapping("/fee/max/{maxFee}")
-    public ResponseEntity<Map<String, Object>> getDoctorsWithMaxFee(
-            @PathVariable @Min(0) @Max(50000) Double maxFee) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsWithMaxFee(maxFee);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get doctors with consultation fee in range
-     */
-    @GetMapping("/fee/range")
-    public ResponseEntity<Map<String, Object>> getDoctorsWithFeeRange(
-            @RequestParam @Min(0) Double minFee,
-            @RequestParam @Min(0) @Max(50000) Double maxFee) {
-        Map<String, Object> response = new HashMap<>();
-        if (minFee > maxFee) {
-            response.put("success", false);
-            response.put("message", "Minimum fee cannot be greater than maximum fee");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    @PutMapping("/{doctorId}/approve")
+    public ResponseEntity<?> approveDoctorProfile(@PathVariable Long doctorId,
+                                                @RequestBody(required = false) Map<String, String> request) {
+        try {
+            String approvedBy = request != null ? request.get("approvedBy") : "Admin";
+            boolean approved = doctorService.approveDoctorProfile(doctorId, approvedBy);
+            
+            if (approved) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Doctor profile approved successfully"
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Failed to approve doctor: " + e.getMessage()
+            ));
         }
-        List<DoctorsEntity> doctors = doctorService.getDoctorsWithFeeRange(minFee, maxFee);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
     }
 
-    // ==================== ENUM-BASED FILTERS ====================
+    /**
+     * Reset doctor profile to pending
+     * PUT /api/doctors/{doctorId}/reset-pending
+     */
+    @PutMapping("/{doctorId}/reset-pending")
+    public ResponseEntity<?> resetToPending(@PathVariable Long doctorId,
+                                          @RequestBody(required = false) Map<String, String> request) {
+        try {
+            String updatedBy = request != null ? request.get("updatedBy") : "Admin";
+            boolean reset = doctorService.resetDoctorProfileToPending(doctorId, updatedBy);
+            
+            if (reset) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Doctor profile reset to pending successfully"
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Failed to reset status: " + e.getMessage()
+            ));
+        }
+    }
+
+    // ==================== ADMIN ENDPOINTS ====================
+
+    /**
+     * Get all doctors for admin
+     * GET /api/doctors/admin/all
+     */
+    @GetMapping("/admin/all")
+    public ResponseEntity<?> getAllDoctorsForAdmin() {
+        try {
+            List<DoctorDtoForAdmin> doctors = doctorService.getAllDoctorsForAdmin();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctors for admin: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get pending doctors for approval
+     * GET /api/doctors/admin/pending
+     */
+    @GetMapping("/admin/pending")
+    public ResponseEntity<?> getPendingDoctors() {
+        try {
+            List<DoctorsEntity> pendingDoctors = doctorService.getPendingDoctorsForApproval();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", pendingDoctors.size(),
+                "data", pendingDoctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving pending doctors: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get approved doctors
+     * GET /api/doctors/admin/approved
+     */
+    @GetMapping("/admin/approved")
+    public ResponseEntity<?> getApprovedDoctors() {
+        try {
+            List<DoctorsEntity> approvedDoctors = doctorService.getApprovedDoctors();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", approvedDoctors.size(),
+                "data", approvedDoctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving approved doctors: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get rejected doctors
+     * GET /api/doctors/admin/rejected
+     */
+    @GetMapping("/admin/rejected")
+    public ResponseEntity<?> getRejectedDoctors() {
+        try {
+            List<DoctorsEntity> rejectedDoctors = doctorService.getRejectedDoctors();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", rejectedDoctors.size(),
+                "data", rejectedDoctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving rejected doctors: " + e.getMessage()
+            ));
+        }
+    }
+
+    // ==================== CLIENT ENDPOINTS ====================
+
+    /**
+     * Get available, active and approved doctors for client
+     * GET /api/doctors/client/available
+     */
+    @GetMapping("/client/available")
+    public ResponseEntity<?> getAvailableDoctorsForClient() {
+        try {
+            List<DoctorDtoForClient> doctors = doctorService.getAvailableActiveApproved();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving available doctors: " + e.getMessage()
+            ));
+        }
+    }
+
+    // ==================== FILTER ENDPOINTS ====================
+
+    /**
+     * Get doctors by experience range
+     * GET /api/doctors/filter/experience?min={minYears}&max={maxYears}
+     */
+    @GetMapping("/filter/experience")
+    public ResponseEntity<?> getDoctorsByExperience(@RequestParam(defaultValue = "0") @Min(0) Integer min,
+                                                   @RequestParam(defaultValue = "50") @Max(50) Integer max) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getDoctorsWithExperienceRange(min, max);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error filtering doctors by experience: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get doctors by consultation fee range
+     * GET /api/doctors/filter/fee?min={minFee}&max={maxFee}
+     */
+    @GetMapping("/filter/fee")
+    public ResponseEntity<?> getDoctorsByFeeRange(@RequestParam(defaultValue = "0") Double min,
+                                                @RequestParam(defaultValue = "50000") Double max) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getDoctorsWithFeeRange(min, max);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error filtering doctors by fee: " + e.getMessage()
+            ));
+        }
+    }
 
     /**
      * Get doctors by gender
+     * GET /api/doctors/filter/gender/{gender}
      */
-    @GetMapping("/gender/{gender}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByGender(@PathVariable Gender gender) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByGender(gender);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
+    @GetMapping("/filter/gender/{gender}")
+    public ResponseEntity<?> getDoctorsByGender(@PathVariable Gender gender) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getDoctorsByGender(gender);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error filtering doctors by gender: " + e.getMessage()
+            ));
+        }
     }
 
     /**
      * Get doctors by employment type
+     * GET /api/doctors/filter/employment/{type}
      */
-    @GetMapping("/employment-type/{type}")
-    public ResponseEntity<Map<String, Object>> getDoctorsByEmploymentType(@PathVariable EmploymentType type) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsByEmploymentType(type);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
+    @GetMapping("/filter/employment/{type}")
+    public ResponseEntity<?> getDoctorsByEmploymentType(@PathVariable EmploymentType type) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.getDoctorsByEmploymentType(type);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error filtering doctors by employment type: " + e.getMessage()
+            ));
+        }
     }
 
-    // ==================== COMBINATION QUERIES ====================
-
-    /**
-     * Get available doctors by specialization
-     */
-    @GetMapping("/available/specialization/{specialization}")
-    public ResponseEntity<Map<String, Object>> getAvailableDoctorsBySpecialization(@PathVariable String specialization) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getAvailableDoctorsBySpecialization(specialization);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get available doctors in a city
-     */
-    @GetMapping("/available/city/{city}")
-    public ResponseEntity<Map<String, Object>> getAvailableDoctorsInCity(@PathVariable String city) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getAvailableDoctorsInCity(city);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get doctors by specialization and city
-     */
-    @GetMapping("/specialization/{specialization}/city/{city}")
-    public ResponseEntity<Map<String, Object>> getDoctorsBySpecializationAndCity(
-            @PathVariable String specialization, @PathVariable String city) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.getDoctorsBySpecializationAndCity(specialization, city);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        return ResponseEntity.ok(response);
-    }
-
-    // ==================== SEARCH METHODS ====================
+    // ==================== SEARCH ENDPOINTS ====================
 
     /**
      * Search doctors by hospital name
+     * GET /api/doctors/search/hospital?keyword={keyword}
      */
     @GetMapping("/search/hospital")
-    public ResponseEntity<Map<String, Object>> searchDoctorsByHospitalName(@RequestParam String keyword) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.searchDoctorsByHospitalName(keyword);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("keyword", keyword);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Search doctors by specialization keyword
-     */
-    @GetMapping("/search/specialization")
-    public ResponseEntity<Map<String, Object>> searchDoctorsBySpecialization(@RequestParam String keyword) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.searchDoctorsBySpecialization(keyword);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("keyword", keyword);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> searchDoctorsByHospital(@RequestParam String keyword) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.searchDoctorsByHospitalName(keyword);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error searching doctors: " + e.getMessage()
+            ));
+        }
     }
 
     /**
      * Search doctors by qualification
+     * GET /api/doctors/search/qualification?keyword={keyword}
      */
     @GetMapping("/search/qualification")
-    public ResponseEntity<Map<String, Object>> searchDoctorsByQualification(@RequestParam String keyword) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.searchDoctorsByQualification(keyword);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("keyword", keyword);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> searchDoctorsByQualification(@RequestParam String keyword) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.searchDoctorsByQualification(keyword);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error searching doctors by qualification: " + e.getMessage()
+            ));
+        }
     }
 
     /**
      * Search doctors by bio content
+     * GET /api/doctors/search/bio?keyword={keyword}
      */
     @GetMapping("/search/bio")
-    public ResponseEntity<Map<String, Object>> searchDoctorsByBio(@RequestParam String keyword) {
-        Map<String, Object> response = new HashMap<>();
-        List<DoctorsEntity> doctors = doctorService.searchDoctorsByBio(keyword);
-        response.put("success", true);
-        response.put("data", doctors);
-        response.put("count", doctors.size());
-        response.put("keyword", keyword);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> searchDoctorsByBio(@RequestParam String keyword) {
+        try {
+            List<DoctorsEntity> doctors = doctorService.searchDoctorsByBio(keyword);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error searching doctors by bio: " + e.getMessage()
+            ));
+        }
     }
 
-  
+    // ==================== RECOMMENDATION ENDPOINTS ====================
 
     /**
-     * Get doctors by appointment status with pagination
+     * Get recommended doctors based on criteria
+     * GET /api/doctors/recommend?city={city}&specialization={specialization}&maxFee={fee}&minExperience={years}
      */
-    @GetMapping("/appointment-status/{status}/paginated")
-    public ResponseEntity<Map<String, Object>> getDoctorsByAppointmentStatusWithPagination(
-            @PathVariable AppointmentStatus status,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Map<String, Object> response = new HashMap<>();
+    @GetMapping("/recommend")
+    public ResponseEntity<?> getRecommendedDoctors(@RequestParam String city,
+                                                 @RequestParam String specialization,
+                                                 @RequestParam Double maxFee,
+                                                 @RequestParam Integer minExperience) {
         try {
-            Page<DoctorsEntity> doctorPage = doctorService.getDoctorsByAppointmentStatusWithPagination(status, page, size);
-            response.put("success", true);
-            response.put("data", doctorPage.getContent());
-            response.put("currentPage", doctorPage.getNumber());
-            response.put("totalPages", doctorPage.getTotalPages());
-            response.put("totalElements", doctorPage.getTotalElements());
-            response.put("size", doctorPage.getSize());
-            response.put("appointmentStatus", status);
-            return ResponseEntity.ok(response);
+            List<DoctorsEntity> doctors = doctorService.getRecommendedDoctors(city, specialization, maxFee, minExperience);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", doctors.size(),
+                "data", doctors
+            ));
         } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching paginated doctors by appointment status: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error getting recommended doctors: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get top doctors by experience in specialization
+     * GET /api/doctors/top-by-experience/{specialization}?limit={limit}
+     */
+    @GetMapping("/top-by-experience/{specialization}")
+    public ResponseEntity<?> getTopDoctorsByExperience(@PathVariable String specialization,
+                                                      @RequestParam(defaultValue = "10") Integer limit) {
+        try {
+            List<DoctorsEntity> topDoctors = doctorService.getTopDoctorsByExperience(specialization, limit);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", topDoctors.size(),
+                "data", topDoctors
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving top doctors: " + e.getMessage()
+            ));
+        }
+    }
+
+    // ==================== PAGINATION ENDPOINTS ====================
+
+    /**
+     * Get doctors with pagination
+     * GET /api/doctors/page?page={page}&size={size}
+     */
+    @GetMapping("/page")
+    public ResponseEntity<?> getDoctorsWithPagination(@RequestParam(defaultValue = "0") Integer page,
+                                                     @RequestParam(defaultValue = "10") Integer size) {
+        try {
+            Page<DoctorsEntity> doctorsPage = doctorService.getDoctorsWithPagination(page, size);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", doctorsPage.getContent(),
+                "totalElements", doctorsPage.getTotalElements(),
+                "totalPages", doctorsPage.getTotalPages(),
+                "currentPage", doctorsPage.getNumber(),
+                "pageSize", doctorsPage.getSize()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctors with pagination: " + e.getMessage()
+            ));
         }
     }
 
     /**
      * Get doctors with pagination and sorting
+     * GET /api/doctors/page/sort?page={page}&size={size}&sortBy={field}&sortDirection={asc/desc}
      */
-    @GetMapping("/paginated/sorted")
-    public ResponseEntity<Map<String, Object>> getDoctorsWithPaginationAndSorting(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+    @GetMapping("/page/sort")
+    public ResponseEntity<?> getDoctorsWithPaginationAndSorting(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(defaultValue = "doctorId") String sortBy,
             @RequestParam(defaultValue = "asc") String sortDirection) {
-        Map<String, Object> response = new HashMap<>();
         try {
-            Page<DoctorsEntity> doctorPage = doctorService.getDoctorsWithPaginationAndSorting(page, size, sortBy, sortDirection);
-            response.put("success", true);
-            response.put("data", doctorPage.getContent());
-            response.put("currentPage", doctorPage.getNumber());
-            response.put("totalPages", doctorPage.getTotalPages());
-            response.put("totalElements", doctorPage.getTotalElements());
-            response.put("size", doctorPage.getSize());
-            response.put("sortBy", sortBy);
-            response.put("sortDirection", sortDirection);
-            return ResponseEntity.ok(response);
+            Page<DoctorsEntity> doctorsPage = doctorService.getDoctorsWithPaginationAndSorting(page, size, sortBy, sortDirection);
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "data", doctorsPage.getContent(),
+                "totalElements", doctorsPage.getTotalElements(),
+                "totalPages", doctorsPage.getTotalPages(),
+                "currentPage", doctorsPage.getNumber(),
+                "pageSize", doctorsPage.getSize(),
+                "sortBy", sortBy,
+                "sortDirection", sortDirection
+            ));
         } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching sorted paginated doctors: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "Error retrieving doctors with sorting: " + e.getMessage()
+            ));
         }
     }
 
-    // ==================== STATUS UPDATE METHODS ====================
+    // ==================== UTILITY ENDPOINTS ====================
 
-    /**
-     * Update doctor availability status
-     */
-    @PatchMapping("/{doctorId}/availability")
-    public ResponseEntity<Map<String, Object>> updateDoctorAvailability(
-            @PathVariable Long doctorId,
-            @RequestParam boolean isAvailable) {
-        Map<String, Object> response = new HashMap<>();
-        boolean updated = doctorService.updateDoctorAvailability(doctorId, isAvailable);
-        if (updated) {
-            response.put("success", true);
-            response.put("message", "Doctor availability updated successfully");
-            response.put("doctorId", doctorId);
-            response.put("isAvailable", isAvailable);
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        }
-    }
-
-    /**
-     * Update consultation fee
-     */
-    @PatchMapping("/{doctorId}/fee")
-    public ResponseEntity<Map<String, Object>> updateConsultationFee(
-            @PathVariable Long doctorId,
-            @RequestParam @Min(0) @Max(50000) Double newFee) {
-        Map<String, Object> response = new HashMap<>();
-        boolean updated = doctorService.updateConsultationFee(doctorId, newFee);
-        if (updated) {
-            response.put("success", true);
-            response.put("message", "Consultation fee updated successfully");
-            response.put("doctorId", doctorId);
-            response.put("newFee", newFee);
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        }
-    }
-
-    /**
-     * Update doctor bio
-     */
-    @PatchMapping("/{doctorId}/bio")
-    public ResponseEntity<Map<String, Object>> updateDoctorBio(
-            @PathVariable Long doctorId,
-            @RequestParam String bio) {
-        Map<String, Object> response = new HashMap<>();
-        if (bio.length() > 500) {
-            response.put("success", false);
-            response.put("message", "Bio cannot exceed 500 characters");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-        }
-        boolean updated = doctorService.updateDoctorBio(doctorId, bio);
-        if (updated) {
-            response.put("success", true);
-            response.put("message", "Doctor bio updated successfully");
-            response.put("doctorId", doctorId);
-            return ResponseEntity.ok(response);
-        } else {
-            response.put("success", false);
-            response.put("message", "Doctor not found");
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        }
-    }
-    
-    // ==================== SPECIALIZATION ENDPOINTS ====================
-
-    /**
-     * Get all unique specializations for active doctors only
-     */
-    @GetMapping("/specializations/active")
-    public ResponseEntity<Map<String, Object>> getActiveSpecializations() {
-        Map<String, Object> response = new HashMap<>();
-        try {
-            List<String> specializations = doctorService.getActiveSpecializations();
-            response.put("success", true);
-            response.put("message", "Active specializations retrieved successfully");
-            response.put("data", specializations);
-            response.put("count", specializations.size());
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching active specializations: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-
-    /**
-     * Get all unique specializations for available doctors only
-     */
-    @GetMapping("/specializations/available")
-    public ResponseEntity<Map<String, Object>> getAvailableSpecializations() {
-        Map<String, Object> response = new HashMap<>();
-        try {
-            List<String> specializations = doctorService.getAvailableSpecializations();
-            response.put("success", true);
-            response.put("message", "Available specializations retrieved successfully");
-            response.put("data", specializations);
-            response.put("count", specializations.size());
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching available specializations: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-
-    // ==================== CUSTOM DTO ENDPOINTS ====================
-
-    /**
-     * Get available and active doctors for clients (DTO format)
-     */
-    @GetMapping("/client/available-active")
-    public ResponseEntity<Map<String, Object>> getAvailableAndActiveDoctorsForClient() {
-        Map<String, Object> response = new HashMap<>();
-        try {
-            List<DoctorDtoForClient> doctors = doctorService.getAvailableAndActive();
-            response.put("success", true);
-            response.put("message", "Available and active doctors retrieved successfully");
-            response.put("data", doctors);
-            response.put("count", doctors.size());
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching available and active doctors: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-
-    
-    /**
-     * Get doctors by city with pagination
-     */
-    @GetMapping("/city/{city}/paginated")
-    public ResponseEntity<Map<String, Object>> getDoctorsByCityWithPagination(
-            @PathVariable String city,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        Map<String, Object> response = new HashMap<>();
-        try {
-            Page<DoctorsEntity> doctorPage = doctorService.getDoctorsByCityWithPagination(city, page, size);
-            response.put("success", true);
-            response.put("data", doctorPage.getContent());
-            response.put("currentPage", doctorPage.getNumber());
-            response.put("totalPages", doctorPage.getTotalPages());
-            response.put("totalElements", doctorPage.getTotalElements());
-            response.put("size", doctorPage.getSize());
-            response.put("city", city);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "Error fetching paginated doctors by city: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
-
-    }
+}

@@ -285,4 +285,92 @@ public class UserService {
         // return userRepository.findTopByOrderByCreatedAtDesc(limit);
         return userRepository.findAll(); // Placeholder - implement based on your entity structure
     }
+    
+    
+// ------------------------------------
+    /**
+     * Get user by ID
+     * @param userId - User ID to search
+     * @return UsersEntity - User object if found, null if not found
+     */
+    public UsersEntity getUserByIdEntity(Long userId) {
+        try {
+            if (userId == null || userId <= 0) {
+                return null;
+            }
+            
+            Optional<UsersEntity> userOptional = userRepository.findById(userId);
+            return userOptional.orElse(null);
+            
+        } catch (Exception e) {
+            System.err.println("Error fetching user by ID: " + userId + ". Error: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get user by ID with exception handling
+     * @param userId - User ID to search
+     * @return UsersEntity - User object
+     * @throws IllegalArgumentException if user not found
+     */
+    public UsersEntity getUserByIdWithException(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("Invalid user ID: " + userId);
+        }
+        
+        Optional<UsersEntity> userOptional = userRepository.findById(userId);
+        
+        if (userOptional.isEmpty()) {
+            throw new IllegalArgumentException("User not found with ID: " + userId);
+        }
+        
+        return userOptional.get();
+    }
+
+    /**
+     * Check if user exists by ID
+     * @param userId - User ID to check
+     * @return boolean - true if exists, false otherwise
+     */
+    public boolean existsById(Long userId) {
+        try {
+            if (userId == null || userId <= 0) {
+                return false;
+            }
+            return userRepository.existsById(userId);
+        } catch (Exception e) {
+            System.err.println("Error checking user existence: " + userId + ". Error: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get user by ID with detailed validation
+     * @param userId - User ID to search
+     * @return UsersEntity - User object with validation
+     * @throws IllegalArgumentException for various validation errors
+     */
+    public UsersEntity getUserByIdWithValidation(Long userId) {
+        // Basic validation
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+        
+        if (userId <= 0) {
+            throw new IllegalArgumentException("User ID must be positive number");
+        }
+        
+        // Check if user exists
+        Optional<UsersEntity> userOptional = userRepository.findById(userId);
+        
+        if (userOptional.isEmpty()) {
+            throw new IllegalArgumentException("User not found with ID: " + userId);
+        }
+        
+        UsersEntity user = userOptional.get();
+        
+       
+        return user;
+    }
 }

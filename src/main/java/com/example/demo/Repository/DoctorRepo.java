@@ -1,10 +1,8 @@
 package com.example.demo.Repository;
 
-
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
-import com.example.demo.Enum.AppointmentStatus;
-import com.example.demo.Enum.AppointmentStatus;
+import com.example.demo.Enum.DoctorProfileStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
 
@@ -25,7 +23,7 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
     Optional<DoctorsEntity> findByLicenseNumber(String licenseNumber);
 
     List<DoctorsEntity> findAll();
-    
+
     Optional<DoctorsEntity> findByUser(UsersEntity user);
 
     List<DoctorsEntity> findBySpecialization(String specialization);
@@ -42,16 +40,16 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
 
     List<DoctorsEntity> findByIsActiveTrue();
     List<DoctorsEntity> findByIsActiveFalse();
-    
+
     List<DoctorsEntity> findByIsAvailableTrueAndIsActiveTrue();
-    
-    // ---------- APPOINTMENT STATUS QUERIES ----------
-    List<DoctorsEntity> findByAppointmentStatus(AppointmentStatus appointmentStatus);
-    long countByAppointmentStatus(AppointmentStatus appointmentStatus);
-    
-    // Combined appointment status queries
-    List<DoctorsEntity> findByAppointmentStatusAndIsActiveTrue(AppointmentStatus appointmentStatus);
-    List<DoctorsEntity> findByAppointmentStatusAndIsAvailableTrue(AppointmentStatus appointmentStatus);
+
+    // ---------- PROFILE STATUS QUERIES (fixed) ----------
+    List<DoctorsEntity> findByDoctorProfileStatus(DoctorProfileStatus status);
+    long countByDoctorProfileStatus(DoctorProfileStatus status);
+
+    // Combined profile status queries
+    List<DoctorsEntity> findByDoctorProfileStatusAndIsActiveTrue(DoctorProfileStatus status);
+    List<DoctorsEntity> findByDoctorProfileStatusAndIsAvailableTrue(DoctorProfileStatus status);
 
     // ---------- RANGE QUERIES ----------
     List<DoctorsEntity> findByExperienceYearsGreaterThanEqual(Integer years);
@@ -77,7 +75,6 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
     List<DoctorsEntity> findBySpecializationAndCity(String specialization, String city);
     List<DoctorsEntity> findBySpecializationAndIsAvailableTrue(String specialization);
     List<DoctorsEntity> findByCityAndIsAvailableTrue(String city);
-   
 
     // ---------- SEARCH-LIKE QUERIES ----------
     List<DoctorsEntity> findByHospitalClinicNameContainingIgnoreCase(String keyword);
@@ -96,7 +93,7 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
 
     long countByCity(String city);
     long countBySpecialization(String specialization);
-    
+
     // ------ FIND SPECIALISATION--------
     @Query("SELECT DISTINCT d.specialization FROM DoctorsEntity d WHERE d.specialization IS NOT NULL AND d.isActive = true ORDER BY d.specialization")
     List<String> findAllUniqueSpecializationsForActiveDoctors();
@@ -106,11 +103,37 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
 
     @Query("SELECT DISTINCT d.specialization FROM DoctorsEntity d WHERE d.specialization IS NOT NULL ORDER BY d.specialization")
     List<String> findAllUniqueSpecializations();
+
+    // ------ PROFILE STATUS WITH PAGINATION ------
+    Page<DoctorsEntity> findByDoctorProfileStatus(DoctorProfileStatus status, Pageable pageable);
+
+    // ------ PROFILE STATUS COMBINATIONS ------
+    List<DoctorsEntity> findByDoctorProfileStatusAndSpecialization(DoctorProfileStatus status, String specialization);
+    List<DoctorsEntity> findByDoctorProfileStatusAndCity(DoctorProfileStatus status, String city);
+
+    // 🔹 Approved + Available
+    List<DoctorsEntity> findBySpecializationAndIsAvailableTrueAndDoctorProfileStatus(String specialization, DoctorProfileStatus status);
+    List<DoctorsEntity> findByCityAndIsAvailableTrueAndDoctorProfileStatus(String city, DoctorProfileStatus status);
+
+    // 🔹 Pagination Support
+    Page<DoctorsEntity> findBySpecializationAndDoctorProfileStatus(String specialization, DoctorProfileStatus status, Pageable pageable);
+
+    // 🔹 Custom Queries (Unique Specializations)
+    @Query("SELECT DISTINCT d.specialization FROM DoctorsEntity d " +
+           "WHERE d.isActive = true AND d.doctorProfileStatus = com.example.demo.Enum.DoctorProfileStatus.APPROVED")
+    List<String> findAllUniqueSpecializationsForActiveApprovedDoctors();
+
+    @Query("SELECT DISTINCT d.specialization FROM DoctorsEntity d " +
+           "WHERE d.isAvailable = true AND d.doctorProfileStatus = com.example.demo.Enum.DoctorProfileStatus.APPROVED")
+    List<String> findAllUniqueSpecializationsForAvailableApprovedDoctors();
+
+    // 🔹 Available + Active + Approved Doctors
+    List<DoctorsEntity> findByIsAvailableTrueAndIsActiveTrueAndDoctorProfileStatus(DoctorProfileStatus status);
+
+    // 🔹 Example of Top-N Query without Pageable
+    List<DoctorsEntity> findTop5BySpecializationAndDoctorProfileStatusOrderByExperienceYearsDesc(
+            String specialization, DoctorProfileStatus status
+    );
     
-    // ------ APPOINTMENT STATUS WITH PAGINATION ------
-    Page<DoctorsEntity> findByAppointmentStatus(AppointmentStatus appointmentStatus, Pageable pageable);
-    
-    // ------ APPOINTMENT STATUS COMBINATIONS ------
-    List<DoctorsEntity> findByAppointmentStatusAndSpecialization(AppointmentStatus appointmentStatus, String specialization);
-    List<DoctorsEntity> findByAppointmentStatusAndCity(AppointmentStatus appointmentStatus, String city);
+
 }

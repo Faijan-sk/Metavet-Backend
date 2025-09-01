@@ -8,7 +8,7 @@ import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Repository.DoctorRepo;
 import com.example.demo.Repository.UserRepo;
-import com.example.demo.Enum.AppointmentStatus;
+import com.example.demo.Enum.DoctorProfileStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
 
@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -35,8 +36,189 @@ public class DoctorService {
     @Autowired
     private UserRepo userRepository;
 
+    // ==================== HELPER METHOD FOR PROFILE STATUS VALIDATION ====================
+    
+    /**
+     * Helper method to validate and set doctor profile status
+     * Frontend se APPROVED/REJECTED aaye to store hoga, otherwise PENDING default
+     */
+    private void validateAndSetProfileStatus(DoctorsEntity doctor, DoctorProfileStatus requestedStatus) {
+        if (requestedStatus != null && 
+            (requestedStatus == DoctorProfileStatus.APPROVED || 
+             requestedStatus == DoctorProfileStatus.REJECTED || 
+             requestedStatus == DoctorProfileStatus.PENDING)) {
+            doctor.setDoctorProfileStatus(requestedStatus);
+        } else {
+            doctor.setDoctorProfileStatus(DoctorProfileStatus.PENDING);
+        }
+    }
+
     // ==================== CRUD OPERATIONS ====================
 
+    
+    /**
+     * Create new doctor profile with enhanced validation and error handling
+     * @param doctor - DoctorsEntity object with all required data
+     * @return DoctorsEntity - Saved doctor profile
+     * @throws IllegalArgumentException - For validation errors
+     * @throws RuntimeException - For database or system errors
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public DoctorsEntity createDoctorEnhanced(DoctorsEntity doctor) {
+        
+        // 1. Basic validation
+        if (doctor == null) {
+            throw new IllegalArgumentException("Doctor data cannot be null");
+        }
+        
+        if (doctor.getUser() == null || doctor.getUser().getUid() == null) {
+            throw new IllegalArgumentException("User information is required");
+        }
+        
+        // 2. Check if user exists and is valid doctor
+        UsersEntity user = doctor.getUser();
+        if (user.getUserType() != 2) {
+            throw new IllegalArgumentException("User is not registered as a doctor (userType must be 2)");
+        }
+        
+        // 3. Check if user already has doctor profile
+        if (doctorRepository.existsByUser(user)) {
+            throw new IllegalArgumentException("Doctor profile already exists for user ID: " + user.getUid());
+        }
+        
+        // 4. Check license number uniqueness
+        if (doctor.getLicenseNumber() != null && 
+            doctorRepository.existsByLicenseNumber(doctor.getLicenseNumber())) {
+            throw new IllegalArgumentException("License number already exists: " + doctor.getLicenseNumber());
+        }
+        
+        // 5. Validate date constraints
+        validateDoctorDates(doctor);
+        
+        // 6. Set default values and timestamps
+        setDefaultValues(doctor);
+        
+        // 7. Profile status validation and setting
+        validateAndSetProfileStatus(doctor, doctor.getDoctorProfileStatus());
+        
+        try {
+            // 8. Save doctor profile
+            DoctorsEntity savedDoctor = doctorRepository.save(doctor);
+            
+            // Log successful creation
+            System.out.println("Doctor profile created successfully for user: " + user.getUid() + 
+                             ", License: " + doctor.getLicenseNumber());
+            
+            return savedDoctor;
+            
+        } catch (Exception e) {
+            // Log error and re-throw with more context
+            System.err.println("Error creating doctor profile for user: " + user.getUid() + 
+                              ". Error: " + e.getMessage());
+            throw new RuntimeException("Failed to save doctor profile: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Validate date-related fields
+     */
+    private void validateDoctorDates(DoctorsEntity doctor) {
+        LocalDate today = LocalDate.now();
+        
+        // Date of birth validation
+        if (doctor.getDateOfBirth() != null) {
+            if (doctor.getDateOfBirth().isAfter(today)) {
+                throw new IllegalArgumentException("Date of birth cannot be in the future");
+            }
+            
+            // Age should be between 22-80 for doctors
+            int age = Period.between(doctor.getDateOfBirth(), today).getYears();
+            if (age < 22 || age > 80) {
+                throw new IllegalArgumentException("Doctor age must be between 22 and 80 years");
+            }
+        }
+        
+        // License date validations
+        if (doctor.getLicenseIssueDate() != null) {
+            if (doctor.getLicenseIssueDate().isAfter(today)) {
+                throw new IllegalArgumentException("License issue date cannot be in the future");
+            }
+        }
+        
+        if (doctor.getLicenseExpiryDate() != null) {
+            if (doctor.getLicenseIssueDate() != null && 
+                doctor.getLicenseExpiryDate().isBefore(doctor.getLicenseIssueDate())) {
+                throw new IllegalArgumentException("License expiry date cannot be before issue date");
+            }
+        }
+        
+        // Joining date validation
+        if (doctor.getJoiningDate() != null) {
+            if (doctor.getJoiningDate().isAfter(today.plusDays(30))) {
+                throw new IllegalArgumentException("Joining date cannot be more than 30 days in the future");
+            }
+        }
+        
+        // Resignation date validation
+        if (doctor.getResignationDate() != null) {
+            if (doctor.getJoiningDate() != null && 
+                doctor.getResignationDate().isBefore(doctor.getJoiningDate())) {
+                throw new IllegalArgumentException("Resignation date cannot be before joining date");
+            }
+        }
+    }
+
+    /**
+     * Set default values for new doctor
+     */
+    private void setDefaultValues(DoctorsEntity doctor) {
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Set timestamps
+        doctor.setCreatedAt(now);
+        doctor.setUpdatedAt(now);
+        
+        // Set default boolean values
+        if (doctor.getIsActive() == null) {
+            doctor.setIsActive(true);
+        }
+        
+        if (doctor.getIsAvailable() == null) {
+            doctor.setIsAvailable(true);
+        }
+        
+        // Set default country if not provided
+        if (doctor.getCountry() == null || doctor.getCountry().trim().isEmpty()) {
+            doctor.setCountry("India");
+        }
+        
+        // Set default profile status if not provided
+        if (doctor.getDoctorProfileStatus() == null) {
+            doctor.setDoctorProfileStatus(DoctorProfileStatus.PENDING);
+        }
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     /**
      * Create or update doctor profile
      * @param userId - User ID from UsersEntity
@@ -78,7 +260,6 @@ public class DoctorService {
             doctor.setUser(user);
             doctor.setCreatedAt(LocalDateTime.now());
             doctor.setIsActive(true);
-            doctor.setAppointmentStatus(AppointmentStatus.PENDING); // Set default appointment status
         }
 
         // Set all doctor fields
@@ -115,10 +296,8 @@ public class DoctorService {
             doctor.setIsAvailable(true);
         }
 
-        // Set appointment status if provided
-        if (doctorRequest.getAppointmentStatus() != null) {
-            doctor.setAppointmentStatus(doctorRequest.getAppointmentStatus());
-        }
+        // Profile status validation - frontend se value aaye to store hogi
+        validateAndSetProfileStatus(doctor, doctorRequest.getDoctorProfileStatus());
 
         doctor.setUpdatedAt(LocalDateTime.now());
 
@@ -129,30 +308,30 @@ public class DoctorService {
      * Create a new doctor profile
      */
     @Transactional
-    public DoctorsEntity createDoctor(DoctorsEntity doctor) {
-        // User validation
-        if (doctor.getUser() == null) {
-            throw new IllegalArgumentException("User is required");
-        }
-        
-        // Check if user is already a doctor
-        if (doctorRepository.existsByUser(doctor.getUser())) {
-            throw new IllegalArgumentException("User already has a doctor profile");
-        }
-        
-        doctor.setCreatedAt(LocalDateTime.now());
-        doctor.setUpdatedAt(LocalDateTime.now());
-        doctor.setIsActive(true);
-        
-        if (doctor.getIsAvailable() == null) {
-            doctor.setIsAvailable(true);
-        }
-        if (doctor.getAppointmentStatus() == null) {
-            doctor.setAppointmentStatus(AppointmentStatus.PENDING);
-        }
-        
-        return doctorRepository.save(doctor);
-    }
+//    public DoctorsEntity createDoctor(DoctorsEntity doctor) {
+//        // User validation
+//        if (doctor.getUser() == null) {
+//            throw new IllegalArgumentException("User is required");
+//        }
+//        
+//        // Check if user is already a doctor
+//        if (doctorRepository.existsByUser(doctor.getUser())) {
+//            throw new IllegalArgumentException("User already has a doctor profile");
+//        }
+//        
+//        doctor.setCreatedAt(LocalDateTime.now());
+//        doctor.setUpdatedAt(LocalDateTime.now());
+//        doctor.setIsActive(true);
+//        
+//        if (doctor.getIsAvailable() == null) {
+//            doctor.setIsAvailable(true);
+//        }
+//        
+//        // Profile status validation
+//        validateAndSetProfileStatus(doctor, doctor.getDoctorProfileStatus());
+//        
+//        return doctorRepository.save(doctor);
+//    }
 
     /**
      * Get doctor by ID
@@ -181,7 +360,10 @@ public class DoctorService {
             doctor.setConsultationFee(updatedDoctor.getConsultationFee());
             doctor.setBio(updatedDoctor.getBio());
             doctor.setIsAvailable(updatedDoctor.getIsAvailable());
-            doctor.setAppointmentStatus(updatedDoctor.getAppointmentStatus());
+            
+            // Profile status validation
+            validateAndSetProfileStatus(doctor, updatedDoctor.getDoctorProfileStatus());
+            
             doctor.setUpdatedAt(LocalDateTime.now());
             return doctorRepository.save(doctor);
         }
@@ -287,30 +469,30 @@ public class DoctorService {
         return doctorRepository.findByIsActiveFalse();
     }
 
-    // ==================== APPOINTMENT STATUS METHODS ====================
+    // ==================== DOCTOR PROFILE STATUS METHODS ====================
 
     /**
-     * Get doctors by appointment status
+     * Get doctors by profile status
      */
-    public List<DoctorsEntity> getDoctorsByAppointmentStatus(AppointmentStatus status) {
-        return doctorRepository.findByAppointmentStatus(status);
+    public List<DoctorsEntity> getDoctorsByProfileStatus(DoctorProfileStatus status) {
+        return doctorRepository.findByDoctorProfileStatus(status);
     }
 
     /**
-     * Count doctors by appointment status
+     * Count doctors by profile status
      */
-    public long countDoctorsByAppointmentStatus(AppointmentStatus status) {
-        return doctorRepository.countByAppointmentStatus(status);
+    public long countDoctorsByProfileStatus(DoctorProfileStatus status) {
+        return doctorRepository.countByDoctorProfileStatus(status);
     }
 
     /**
-     * Update doctor appointment status
+     * Update doctor profile status
      */
     @Transactional
-    public boolean updateDoctorAppointmentStatus(Long doctorId, AppointmentStatus status) {
+    public boolean updateDoctorProfileStatus(Long doctorId, DoctorProfileStatus status) {
         Optional<DoctorsEntity> doctor = doctorRepository.findById(doctorId);
         if (doctor.isPresent()) {
-            doctor.get().setAppointmentStatus(status);
+            validateAndSetProfileStatus(doctor.get(), status);
             doctor.get().setUpdatedAt(LocalDateTime.now());
             doctorRepository.save(doctor.get());
             return true;
@@ -319,31 +501,31 @@ public class DoctorService {
     }
 
     /**
-     * Get active doctors by appointment status
+     * Get active doctors by profile status
      */
-    public List<DoctorsEntity> getActiveDoctorsByAppointmentStatus(AppointmentStatus status) {
-        return doctorRepository.findByAppointmentStatusAndIsActiveTrue(status);
+    public List<DoctorsEntity> getActiveDoctorsByProfileStatus(DoctorProfileStatus status) {
+        return doctorRepository.findByDoctorProfileStatusAndIsActiveTrue(status);
     }
 
     /**
-     * Get available doctors by appointment status
+     * Get available doctors by profile status
      */
-    public List<DoctorsEntity> getAvailableDoctorsByAppointmentStatus(AppointmentStatus status) {
-        return doctorRepository.findByAppointmentStatusAndIsAvailableTrue(status);
+    public List<DoctorsEntity> getAvailableDoctorsByProfileStatus(DoctorProfileStatus status) {
+        return doctorRepository.findByDoctorProfileStatusAndIsAvailableTrue(status);
     }
 
     /**
-     * Get doctors by appointment status and specialization
+     * Get doctors by profile status and specialization
      */
-    public List<DoctorsEntity> getDoctorsByAppointmentStatusAndSpecialization(AppointmentStatus status, String specialization) {
-        return doctorRepository.findByAppointmentStatusAndSpecialization(status, specialization);
+    public List<DoctorsEntity> getDoctorsByProfileStatusAndSpecialization(DoctorProfileStatus status, String specialization) {
+        return doctorRepository.findByDoctorProfileStatusAndSpecialization(status, specialization);
     }
 
     /**
-     * Get doctors by appointment status and city
+     * Get doctors by profile status and city
      */
-    public List<DoctorsEntity> getDoctorsByAppointmentStatusAndCity(AppointmentStatus status, String city) {
-        return doctorRepository.findByAppointmentStatusAndCity(status, city);
+    public List<DoctorsEntity> getDoctorsByProfileStatusAndCity(DoctorProfileStatus status, String city) {
+        return doctorRepository.findByDoctorProfileStatusAndCity(status, city);
     }
 
     // ==================== EXPERIENCE AND FEE FILTERS ====================
@@ -452,6 +634,22 @@ public class DoctorService {
         return doctorRepository.findBySpecializationAndCity(specialization, city);
     }
 
+    /**
+     * Find approved and available doctors by specialization
+     */
+    public List<DoctorsEntity> getApprovedAvailableDoctorsBySpecialization(String specialization) {
+        return doctorRepository.findBySpecializationAndIsAvailableTrueAndDoctorProfileStatus(
+            specialization, DoctorProfileStatus.APPROVED);
+    }
+
+    /**
+     * Find approved and available doctors in a city
+     */
+    public List<DoctorsEntity> getApprovedAvailableDoctorsInCity(String city) {
+        return doctorRepository.findByCityAndIsAvailableTrueAndDoctorProfileStatus(
+            city, DoctorProfileStatus.APPROVED);
+    }
+
     // ==================== SEARCH METHODS ====================
 
     /**
@@ -509,11 +707,11 @@ public class DoctorService {
     }
 
     /**
-     * Get doctors by appointment status with pagination
+     * Get doctors by profile status with pagination
      */
-    public Page<DoctorsEntity> getDoctorsByAppointmentStatusWithPagination(AppointmentStatus status, int page, int size) {
+    public Page<DoctorsEntity> getDoctorsByProfileStatusWithPagination(DoctorProfileStatus status, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return doctorRepository.findByAppointmentStatus(status, pageable);
+        return doctorRepository.findByDoctorProfileStatus(status, pageable);
     }
 
     /**
@@ -605,23 +803,24 @@ public class DoctorService {
     // ==================== BUSINESS LOGIC METHODS ====================
 
     /**
-     * Get recommended doctors based on criteria
+     * Get recommended doctors based on criteria (only approved profiles)
      */
     public List<DoctorsEntity> getRecommendedDoctors(String city, String specialization, Double maxFee, Integer minExperience) {
         List<DoctorsEntity> doctors = doctorRepository.findBySpecializationAndCity(specialization, city);
         return doctors.stream()
                 .filter(doctor -> doctor.getIsAvailable() && doctor.getIsActive())
+                .filter(doctor -> doctor.getDoctorProfileStatus() == DoctorProfileStatus.APPROVED)
                 .filter(doctor -> doctor.getConsultationFee() <= maxFee)
                 .filter(doctor -> doctor.getExperienceYears() >= minExperience)
                 .toList();
     }
 
     /**
-     * Get top doctors by experience in a specialization
+     * Get top doctors by experience in a specialization (only approved)
      */
     public List<DoctorsEntity> getTopDoctorsByExperience(String specialization, int limit) {
         Pageable pageable = PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "experienceYears"));
-        return doctorRepository.findBySpecialization(specialization, pageable).getContent();
+        return doctorRepository.findBySpecializationAndDoctorProfileStatus(specialization, DoctorProfileStatus.APPROVED, pageable).getContent();
     }
 
     /**
@@ -639,20 +838,26 @@ public class DoctorService {
     }
     
     /**
-     * Get Specialization of all active Doctor 
+     * Get specializations of all active and approved doctors 
      */
-    public List<String> getActiveSpecializations() {
-        return doctorRepository.findAllUniqueSpecializationsForActiveDoctors();
+    public List<String> getActiveApprovedSpecializations() {
+        return doctorRepository.findAllUniqueSpecializationsForActiveApprovedDoctors();
     }
     
-    public List<String> getAvailableSpecializations() {
-        return doctorRepository.findAllUniqueSpecializationsForAvailableDoctors();
+    /**
+     * Get specializations of available and approved doctors
+     */
+    public List<String> getAvailableApprovedSpecializations() {
+        return doctorRepository.findAllUniqueSpecializationsForAvailableApprovedDoctors();
     }
     
     // ==================== CUSTOMISED METHODS ====================
     
-    public List<DoctorDtoForClient> getAvailableAndActive() {
-        return doctorRepository.findByIsAvailableTrueAndIsActiveTrue()
+    /**
+     * Get available, active, and APPROVED doctors for client
+     */
+    public List<DoctorDtoForClient> getAvailableActiveApproved() {
+        return doctorRepository.findByIsAvailableTrueAndIsActiveTrueAndDoctorProfileStatus(DoctorProfileStatus.APPROVED)
                 .stream()
                 .map(this::convertToDto)
                 .toList();
@@ -683,7 +888,9 @@ public class DoctorService {
         return dto;
     }
 
-    // Get all doctors for admin (including inactive ones)
+    /**
+     * Get all doctors for admin (including all statuses)
+     */
     public List<DoctorDtoForAdmin> getAllDoctorsForAdmin() {
         return doctorRepository.findAll()
                 .stream()
@@ -691,7 +898,9 @@ public class DoctorService {
                 .toList();
     }
 
-    // Convert DoctorEntity to DoctorDtoForAdmin
+    /**
+     * Convert DoctorEntity to DoctorDtoForAdmin
+     */
     private DoctorDtoForAdmin convertToDtoForAdmin(DoctorsEntity doctor) {
         DoctorDtoForAdmin dto = new DoctorDtoForAdmin();
 
@@ -719,8 +928,76 @@ public class DoctorService {
         dto.setJoiningDate(doctor.getJoiningDate());
         dto.setIsActive(doctor.getIsActive());
         dto.setIsAvailable(doctor.getIsAvailable());
-        dto.setAppointmentStatus(doctor.getAppointmentStatus()); // Added appointment status
+        dto.setDoctorProfileStatus(doctor.getDoctorProfileStatus()); // Updated field name
 
         return dto;
     }
+
+    // ==================== ADMIN SPECIFIC METHODS ====================
+
+    /**
+     * Get pending doctors for admin approval
+     */
+    public List<DoctorsEntity> getPendingDoctorsForApproval() {
+        return getDoctorsByProfileStatus(DoctorProfileStatus.PENDING);
+    }
+
+    /**
+     * Get approved doctors
+     */
+    public List<DoctorsEntity> getApprovedDoctors() {
+        return getDoctorsByProfileStatus(DoctorProfileStatus.APPROVED);
+    }
+
+    /**
+     * Get rejected doctors
+     */
+    public List<DoctorsEntity> getRejectedDoctors() {
+        return getDoctorsByProfileStatus(DoctorProfileStatus.REJECTED);
+    }
+
+    /**
+     * Approve doctor profile (Admin use)
+     */
+    @Transactional
+    public boolean approveDoctorProfile(Long doctorId, String approvedBy) {
+        Optional<DoctorsEntity> doctor = doctorRepository.findById(doctorId);
+        if (doctor.isPresent()) {
+            doctor.get().setDoctorProfileStatus(DoctorProfileStatus.APPROVED);
+            doctor.get().setUpdatedBy(approvedBy);
+            doctor.get().setUpdatedAt(LocalDateTime.now());
+            doctorRepository.save(doctor.get());
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Reset doctor profile to pending (Admin use)
+     */
+    @Transactional
+    public boolean resetDoctorProfileToPending(Long doctorId, String updatedBy) {
+        Optional<DoctorsEntity> doctor = doctorRepository.findById(doctorId);
+        if (doctor.isPresent()) {
+            doctor.get().setDoctorProfileStatus(DoctorProfileStatus.PENDING);
+            doctor.get().setUpdatedBy(updatedBy);
+            doctor.get().setUpdatedAt(LocalDateTime.now());
+            doctorRepository.save(doctor.get());
+            return true;
+        }
+        return false;
+    }
+    
+ // DoctorServiceImpl.java (Implementation)
+    public List<DoctorDtoForClient> getAvailableAndActive() {
+        List<DoctorsEntity> doctors = doctorRepository.findByIsAvailableTrueAndIsActiveTrue();
+
+        return doctors.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    // Helper method for mapping entity -> DTO
+
+    
 }

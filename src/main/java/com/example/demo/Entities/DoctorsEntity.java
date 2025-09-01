@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.example.demo.Enum.AppointmentStatus;
-
+import com.example.demo.Enum.DoctorProfileStatus;
 import com.example.demo.Enum.EmploymentStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
@@ -22,6 +22,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -94,9 +96,9 @@ public class DoctorsEntity {
     private Double consultationFee;
     
     @Enumerated(EnumType.STRING)
-    @Column(name = "appointment_status", nullable = false)
-    private AppointmentStatus appointmentStatus = AppointmentStatus.PENDING; 
-  
+    @Column(name = "profile_status", nullable = false)
+    private DoctorProfileStatus doctorProfileStatus ;
+    
 
     @Column(name = "is_available", nullable = false, columnDefinition = "BOOLEAN DEFAULT true")
     private Boolean isAvailable = true;
@@ -423,13 +425,7 @@ public class DoctorsEntity {
     public DoctorsEntity() {
     }
 
-    public AppointmentStatus getAppointmentStatus() {
-        return appointmentStatus;
-    }
-
-    public void setAppointmentStatus(AppointmentStatus appointmentStatus) {
-        this.appointmentStatus = appointmentStatus;
-    }
+  
   	
     public DoctorsEntity(Long doctorId, UsersEntity user, List<DoctorAvailabilityEntity> availabilities,
             Integer experienceYears, String hospitalClinicName, String hospitalClinicAddress, String pincode,
@@ -474,5 +470,27 @@ public class DoctorsEntity {
         this.createdBy = createdBy;
         this.updatedBy = updatedBy;
         this.emergencyContactNumber = emergencyContactNumber;
+    }
+    
+    public DoctorProfileStatus getDoctorProfileStatus() {
+		return doctorProfileStatus;
+	}
+
+	public void setDoctorProfileStatus(DoctorProfileStatus doctorProfileStatus) {
+		this.doctorProfileStatus = doctorProfileStatus;
+	}
+
+	@PrePersist
+    @PreUpdate
+    public void validateAppointmentStatus() {
+        if (this.doctorProfileStatus == null) {
+            this.doctorProfileStatus = DoctorProfileStatus.PENDING;
+        }
+        // Validate if the status is a valid enum value
+        try {
+            AppointmentStatus.valueOf(this.doctorProfileStatus.name());
+        } catch (Exception e) {
+            this.doctorProfileStatus = DoctorProfileStatus.PENDING;
+        }
     }
 }
