@@ -1,9 +1,7 @@
-
 // Updated OtpAuthService.java
 package com.example.demo.Service;
 
 import java.util.Base64;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,10 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Repository.UserRepo;
-
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import javax.crypto.SecretKey;
 
 @Service
 public class OtpAuthService {
@@ -29,9 +23,6 @@ public class OtpAuthService {
     
     @Autowired
     private JwtService jwtService;
-
-    // Fixed for JJWT 0.12.6 - Generate SecretKey properly
-    private static final SecretKey SECRET_KEY = Keys.secretKeyFor(io.jsonwebtoken.SignatureAlgorithm.HS256);
 
     public Map<String, Object> verifyOtpWithToken(String token, String otp) {
         
@@ -88,11 +79,12 @@ public class OtpAuthService {
             // 6. Mark user as verified and save changes
             UsersEntity authenticatedUser = userRepository.save(user);
 
-            // Generate JWT tokens
+            // 7. Generate JWT tokens using updated service
             String jwtAccessToken;
             String jwtRefreshToken;
 
             try {
+                // Use the new methods for User entity
                 jwtAccessToken = jwtService.generateToken(authenticatedUser);
                 jwtRefreshToken = jwtService.generateRefreshToken(authenticatedUser);
             } catch (Exception e) {
@@ -101,8 +93,7 @@ public class OtpAuthService {
                 return response;
             }
 
-            // 7. Prepare success response - UPDATED STRUCTURE
-            // User data without tokens
+            // 8. Prepare success response - USER DATA
             Map<String, Object> userData = new HashMap<>();
             userData.put("firstName", user.getFirstName());
             userData.put("lastName", user.getLastName());
@@ -110,13 +101,14 @@ public class OtpAuthService {
             userData.put("countryCode", user.getCountryCode());
             userData.put("email", user.getEmail());
             userData.put("userType", user.getUserType());
+            userData.put("userId", user.getUid());
             
-            // Response structure with tokens outside data
+            // 9. Response structure matching your controller expectation
             response.put("status", "success");
             response.put("phoneNumber", phoneNumber);
             response.put("userData", userData);
-            response.put("accessToken", jwtAccessToken);    // Moved outside userData
-            response.put("refreshToken", jwtRefreshToken);  // Moved outside userData
+            response.put("accessToken", jwtAccessToken);
+            response.put("refreshToken", jwtRefreshToken);
 
         } catch (NumberFormatException e) {
             response.put("status", "failed");

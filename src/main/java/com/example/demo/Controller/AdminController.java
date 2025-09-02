@@ -1,5 +1,6 @@
 package com.example.demo.Controller;
 
+
 import com.example.demo.Entities.AdminsEntity;
 import com.example.demo.Service.AdminService;
 import com.example.demo.Service.JwtService;
@@ -19,7 +20,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth/admin")
-@CrossOrigin(origins = "*", allowedHeaders = "*") 
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AdminController {
     
     @Autowired
@@ -47,7 +48,6 @@ public class AdminController {
             admin.setUsername(request.get("username"));
             admin.setEmail(request.get("email"));
             
-            // Role as Integer
             String roleStr = request.get("role");
             if (roleStr != null) {
                 admin.setRole(Integer.parseInt(roleStr));
@@ -83,10 +83,12 @@ public class AdminController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> loginAdmin(@RequestBody Map<String, String> loginRequest) {
         Map<String, Object> response = new HashMap<>();
-        System.out.println("we are in login API ");
+        System.out.println("Admin login API called");
+        
         try {
             String usernameOrEmail = loginRequest.get("userName");
             String password = loginRequest.get("password");
+            
             if (usernameOrEmail == null || password == null) {
                 response.put("success", false);
                 response.put("message", "Username/Email and Password are required!");
@@ -94,14 +96,19 @@ public class AdminController {
             }
             
             AdminsEntity admin = adminService.loginAdmin(usernameOrEmail, password);
+            
+            // Generate both access and refresh tokens for admin
             String jwtAccessToken = jwtService.generateToken(admin);
+//            String jwtRefreshToken = jwtService.generateRefreshToken(admin);
             
             List<Map<String, String>> permissions = List.of(
                 Map.of("subject", "doctor-management", "action", "read"),
                 Map.of("subject", "doctor-management", "action", "create"),
                 Map.of("subject", "doctor-management", "action", "edit"),
                 Map.of("subject", "doctor-management", "action", "delete"),
-                Map.of("subject", "patient-management", "action", "read")
+                Map.of("subject", "patient-management", "action", "read"),
+                Map.of("subject", "user-management", "action", "read"),
+                Map.of("subject", "admin-management", "action", "read")
             );
             
             Map<String, Object> userData = new HashMap<>();
@@ -111,10 +118,12 @@ public class AdminController {
             userData.put("fullName", admin.getFullName());
             userData.put("username", admin.getUsername());
             userData.put("email", admin.getEmail());
+            userData.put("userType", "ADMIN"); // Added userType
             userData.put("permission", permissions);
             
             response.put("success", true);
             response.put("accessToken", jwtAccessToken);
+//            response.put("refreshToken", jwtRefreshToken); // Added refresh token
             response.put("userData", userData);
             
             return ResponseEntity.ok(response);
@@ -122,6 +131,106 @@ public class AdminController {
         } catch (Exception e) {
             response.put("success", false);
             response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+    }
+
+    // NEW: Refresh token endpoint for admin
+    @PostMapping("/refresh-token")
+    public ResponseEntity<Map<String, Object>> refreshAdminToken(@RequestBody Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            String refreshToken = request.get("refreshToken");
+            
+            if (refreshToken == null) {
+                response.put("success", false);
+                response.put("message", "Refresh token is required!");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            // Validate refresh token
+            if (!jwtService.isRefreshTokenValid(refreshToken)) {
+                response.put("success", false);
+                response.put("message", "Invalid or expired refresh token!");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
+            
+            // Extract admin info from refresh token
+            String email = jwtService.extractUsername(refreshToken, false);
+            Long adminId = jwtService.extractUserId(refreshToken, false);
+            
+            // Get admin from database
+            Optional<AdminsEntity> adminOpt = adminService.getAdminById(adminId);
+            if (!adminOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "Admin not found!");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+            
+            AdminsEntity admin = adminOpt.get();
+            
+            // Generate new access token
+            String newAccessToken = jwtService.generateToken(admin);
+            
+            response.put("success", true);
+            response.put("accessToken", newAccessToken);
+            response.put("message", "Token refreshed successfully!");
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Token refresh failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+        }
+    }
+
+    // NEW: Verify admin token endpoint
+    @GetMapping("/verify-token")
+    public ResponseEntity<Map<String, Object>> verifyAdminToken(HttpServletRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                response.put("success", false);
+                response.put("message", "Authorization header missing or invalid!");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
+            
+            String token = authHeader.substring(7);
+            
+            if (!jwtService.isTokenValid(token, true)) {
+                response.put("success", false);
+                response.put("message", "Invalid or expired token!");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+            }
+            
+            // Extract admin info from token
+            String email = jwtService.extractUsername(token, true);
+            Long adminId = jwtService.extractUserId(token, true);
+            String userType = jwtService.extractUserType(token, true);
+            
+            if (!"ADMIN".equals(userType)) {
+                response.put("success", false);
+                response.put("message", "Token is not for admin user!");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            response.put("success", true);
+            response.put("message", "Token is valid!");
+            response.put("data", Map.of(
+                "userId", adminId,
+                "email", email,
+                "userType", userType
+            ));
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Token verification failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
     }

@@ -236,25 +236,25 @@ public class DoctorAuthController {
   * Get doctor by ID
   * GET /api/doctors/{doctorId}
   */
- @GetMapping("/doctors/{doctorId}")
- public ResponseEntity<?> getDoctorById(@PathVariable Long doctorId) {
-     try {
-         Optional<DoctorsEntity> doctor = doctorService.getDoctorById(doctorId);
-         if (doctor.isPresent()) {
-             return ResponseEntity.ok(Map.of(
-                 "success", true,
-                 "data", doctor.get()
-             ));
-         } else {
-             return ResponseEntity.notFound().build();
-         }
-     } catch (Exception e) {
-         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-             "success", false,
-             "message", "Error retrieving doctor: " + e.getMessage()
-         ));
-     }
- }
+// @GetMapping("/doctors/{doctorId}")
+// public ResponseEntity<?> getDoctorById(@PathVariable Long doctorId) {
+//     try {
+//         Optional<DoctorsEntity> doctor = doctorService.getDoctorById(doctorId);
+//         if (doctor.isPresent()) {
+//             return ResponseEntity.ok(Map.of(
+//                 "success", true,
+//                 "data", doctor.get()
+//             ));
+//         } else {
+//             return ResponseEntity.notFound().build();
+//         }
+//     } catch (Exception e) {
+//         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+//             "success", false,
+//             "message", "Error retrieving doctor: " + e.getMessage()
+//         ));
+//     }
+// }
  
  
  //------------- status update of doctor 

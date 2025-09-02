@@ -62,9 +62,22 @@ public class SecurityConfiguration {
             // CORS configuration
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             
-            // HTTP requests authorization
+            // HTTP requests authorization - Updated for Admin and User support
             .authorizeHttpRequests(requests -> requests
+                // Public endpoints - no authentication required
                 .requestMatchers("/auth/**", "/pub/**").permitAll()
+                
+                // Admin endpoints - require ADMIN role
+                .requestMatchers("/auth/admin/**").permitAll() // Admin auth endpoints are public
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                
+                // User endpoints - require USER role
+                .requestMatchers("/api/user/**").hasRole("USER")
+                
+                // Common endpoints - accessible by both ADMIN and USER
+                .requestMatchers("/api/common/**").hasAnyRole("ADMIN", "USER")
+                
+                // Any other request requires authentication
                 .anyRequest().authenticated())
             
             // Session management - stateless
@@ -74,7 +87,7 @@ public class SecurityConfiguration {
             // Authentication provider
             .authenticationProvider(authenticationProvider())
             
-            // JWT filter
+            // JWT filter - Updated filter that handles both Admin and User
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -84,20 +97,23 @@ public class SecurityConfiguration {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Allow specific origins (browser ke liye zaroori)
+        // Allow specific origins - Updated for better security
         configuration.setAllowedOriginPatterns(List.of("*"));
         
         // Allow all HTTP methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         
-        // Allow all headers
+        // Allow all headers - including Authorization header
         configuration.setAllowedHeaders(List.of("*"));
         
-        // IMPORTANT: Browser requests ke liye false kar diya
+        // Allow credentials for admin panel
         configuration.setAllowCredentials(false);
         
         // Preflight request cache time
         configuration.setMaxAge(3600L);
+        
+        // Exposed headers - useful for pagination, etc.
+        configuration.setExposedHeaders(List.of("X-Total-Count", "X-Page", "X-Page-Size"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

@@ -16,6 +16,8 @@ public interface AdminRepo extends JpaRepository<AdminsEntity, Long> {
     
     Optional<AdminsEntity> findByEmail(String email);
     
+   
+    
     @Query("SELECT a FROM AdminsEntity a WHERE a.username = :usernameOrEmail OR a.email = :usernameOrEmail")
     Optional<AdminsEntity> findByUsernameOrEmail(@Param("usernameOrEmail") String usernameOrEmail);
     
@@ -26,4 +28,14 @@ public interface AdminRepo extends JpaRepository<AdminsEntity, Long> {
     // Role ke basis pe admins find karna (ab Integer role)
     @Query("SELECT a FROM AdminsEntity a WHERE a.role = :role")
     List<AdminsEntity> findByRole(@Param("role") Integer role);
+     
+   
+    // Find all active admins (if you have an active field)
+    // List<AdminsEntity> findByActiveTrue();
+    
+    // Custom query to find admins with specific roles
+    @Query("SELECT a FROM AdminsEntity a WHERE a.role IN :roles")
+    List<AdminsEntity> findByRoles(@Param("roles") List<Integer> roles);
 }
+
+

@@ -1,5 +1,7 @@
 package com.example.demo.Config;
+
 import java.io.IOException;
+import java.util.Optional;
 
 import org.hibernate.validator.internal.util.stereotypes.Lazy;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,11 +13,14 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
+import com.example.demo.Entities.AdminsEntity;
+import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Exceptions.BadRequest;
+import com.example.demo.Repository.AdminRepo;
+import com.example.demo.Repository.UserRepo;
 import com.example.demo.Service.JwtService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -39,6 +44,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private AdminRepo adminRepository;
+
+    @Autowired
+    private UserRepo userRepository;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
@@ -64,40 +75,94 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             BadRequest apiResponse = new BadRequest(401, "Missing or invalid authorization header", null);
             response.setContentType("application/json");
             response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
-            return; // Don't continue the filter chain
+            return;
         }
         
         try {
             final String jwt = authHeader.substring(7);
             
-            // Clean quotes if present - Fix for base64url error
+            // Clean quotes if present
             String cleanJwt = jwt.replace("\"", "").trim();
             System.out.println("Original JWT: " + jwt);
             System.out.println("Cleaned JWT: " + cleanJwt);
             
+            // Extract user info from token
             final String userEmail = jwtService.extractUsername(cleanJwt, true);
+            final String userType = jwtService.extractUserType(cleanJwt, true);
+            final Long userId = jwtService.extractUserId(cleanJwt, true);
             
-            System.out.println("Extracted email from token: " + userEmail);
+            System.out.println("Extracted email: " + userEmail);
+            System.out.println("Extracted userType: " + userType);
+            System.out.println("Extracted userId: " + userId);
             
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             
             if (userEmail != null && authentication == null) {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
                 
-                if (jwtService.isTokenValid(cleanJwt, userDetails, true)) {
-                    System.out.println("Token is valid, setting authentication");
+                // Validate token first
+                if (!jwtService.isTokenValid(cleanJwt, true)) {
+                    System.out.println("Token validation failed");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    BadRequest apiResponse = new BadRequest(401, "Invalid or expired token", null);
+                    response.setContentType("application/json");
+                    response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                    return;
+                }
+                
+                // Create authentication based on user type
+                CustomUserDetails userDetails = null;
+                
+                if ("ADMIN".equals(userType)) {
+                    // Handle Admin authentication
+                    Optional<AdminsEntity> adminOpt = adminRepository.findByEmail(userEmail);
+                    if (adminOpt.isPresent()) {
+                        AdminsEntity admin = adminOpt.get();
+                        userDetails = new CustomUserDetails(admin.getEmail(), "ADMIN", cleanJwt, admin.getId(), admin.getRole());
+                        System.out.println("Admin authentication successful");
+                    } else {
+                        System.out.println("Admin not found in database");
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        BadRequest apiResponse = new BadRequest(401, "Admin not found", null);
+                        response.setContentType("application/json");
+                        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                        return;
+                    }
+                } else if ("USER".equals(userType)) {
+                    // Handle User authentication
+                    UsersEntity user = userRepository.findByEmail(userEmail);
+                    if (user != null) {
+                        userDetails = new CustomUserDetails(user.getEmail(), "USER", cleanJwt, user.getUid(), user.getUserType());
+                        System.out.println("User authentication successful");
+                    } else {
+                        System.out.println("User not found in database");
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        BadRequest apiResponse = new BadRequest(401, "User not found", null);
+                        response.setContentType("application/json");
+                        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                        return;
+                    }
+                } else {
+                    System.out.println("Unknown user type: " + userType);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    BadRequest apiResponse = new BadRequest(401, "Invalid user type", null);
+                    response.setContentType("application/json");
+                    response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                    return;
+                }
+                
+                if (userDetails != null) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities());
                     
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                } else {
-                    System.out.println("Token validation failed");
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    BadRequest apiResponse = new BadRequest(401, "Invalid token", null);
-                    response.setContentType("application/json");
-                    response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
-                    return;
+                    
+                    // Set additional attributes for controller access
+                    request.setAttribute("userType", userType);
+                    request.setAttribute("userEmail", userEmail);
+                    request.setAttribute("userId", userId);
+                    
+                    System.out.println("Authentication set successfully");
                 }
             }
             
@@ -112,10 +177,89 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
         } catch (Exception exception) {
             System.out.println("JWT validation error: " + exception.getMessage());
+            exception.printStackTrace();
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             BadRequest apiResponse = new BadRequest(401, "Authentication failed: " + exception.getMessage(), null);
             response.setContentType("application/json");
             response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
         }
     }
+
+}
+
+// Enhanced Custom UserDetails implementation for both Admin and User
+class CustomUserDetails implements UserDetails {
+    private final String email;
+    private final String userType;
+    private final String token;
+    private final Long userId;
+    private final Integer role; // For admin role or user type
+
+    public CustomUserDetails(String email, String userType, String token, Long userId, Integer role) {
+        this.email = email;
+        this.userType = userType;
+        this.token = token;
+        this.userId = userId;
+        this.role = role;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    @Override
+    public String getPassword() {
+        return null; // Not needed for JWT authentication
+    }
+
+    public String getUserType() {
+        return userType;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public Integer getRole() {
+        return role;
+    }
+
+    @Override
+    public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {
+        java.util.List<org.springframework.security.core.authority.SimpleGrantedAuthority> authorities = 
+            new java.util.ArrayList<>();
+        
+        if ("ADMIN".equals(userType)) {
+            authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"));
+            // Add role-specific authorities for admin
+            if (role != null) {
+                authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ADMIN_ROLE_" + role));
+            }
+        } else {
+            authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"));
+            // Add user type specific authorities
+            if (role != null) {
+                authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("USER_TYPE_" + role));
+            }
+        }
+        
+        return authorities;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() { return true; }
+
+    @Override
+    public boolean isAccountNonLocked() { return true; }
+
+    @Override
+    public boolean isCredentialsNonExpired() { return true; }
+
+    @Override
+    public boolean isEnabled() { return true; }
 }
