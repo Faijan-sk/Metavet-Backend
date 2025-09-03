@@ -65,7 +65,7 @@ public class SecurityConfiguration {
             // HTTP requests authorization - Updated for Admin and User support
             .authorizeHttpRequests(requests -> requests
                 // Public endpoints - no authentication required
-                .requestMatchers("/auth/**", "/pub/**").permitAll()
+                .requestMatchers("/api/auth/**", "/pub/**").permitAll()
                 
                 // Admin endpoints - require ADMIN role
                 .requestMatchers("/auth/admin/**").permitAll() // Admin auth endpoints are public
