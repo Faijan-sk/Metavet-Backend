@@ -45,7 +45,7 @@ public class JwtService {
                 .signWith(getSignInKey(isAccessToken), SignatureAlgorithm.HS256)
                 .compact();
     }
-    
+
     // Generates a new access token for a User entity
     public String generateToken(UsersEntity user) {
         Map<String, Object> claims = new HashMap<>();
@@ -54,7 +54,7 @@ public class JwtService {
         claims.put("phoneNumber", user.getPhoneNumber());
         claims.put("firstName", user.getFirstName());
         claims.put("lastName", user.getLastName());
-        
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(user.getEmail())
@@ -63,7 +63,7 @@ public class JwtService {
                 .signWith(getSignInKey(true), SignatureAlgorithm.HS256)
                 .compact();
     }
-    
+
     // Generates a new access token for an Admin entity
     public String generateToken(AdminsEntity admin) {
         Map<String, Object> claims = new HashMap<>();
@@ -72,7 +72,7 @@ public class JwtService {
         claims.put("role", admin.getRole());
         claims.put("roleName", admin.getRoleName());
         claims.put("fullName", admin.getFullName());
-        
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(admin.getEmail())
@@ -87,7 +87,7 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getUid());
         claims.put("userType", "USER");
-        
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(user.getEmail())
@@ -102,7 +102,7 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", admin.getId());
         claims.put("userType", "ADMIN");
-        
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(admin.getEmail())
@@ -111,7 +111,7 @@ public class JwtService {
                 .signWith(getSignInKey(false), SignatureAlgorithm.HS256)
                 .compact();
     }
-    
+
     // --- Token Extraction & Validation Methods ---
 
     // Extracts a single claim from the token
@@ -119,7 +119,7 @@ public class JwtService {
         final Claims claims = extractAllClaims(token, isAccessToken);
         return claimsResolver.apply(claims);
     }
-    
+
     // Extracts all claims (the payload) from the token
     private Claims extractAllClaims(String token, boolean isAccessToken) {
         return Jwts.parserBuilder()
@@ -152,7 +152,17 @@ public class JwtService {
             return false;
         }
     }
-    
+
+    // ✅ Added helper methods
+    public boolean isAccessTokenValid(String token) {
+        return isTokenValid(token, true);
+    }
+
+    //missing method 
+    public boolean isRefreshTokenValid(String token) {
+        return isTokenValid(token, false);
+    }
+
     // Checks if a token is expired
     private boolean isTokenExpired(String token, boolean isAccessToken) {
         return extractExpiration(token, isAccessToken).before(new Date());
@@ -162,27 +172,26 @@ public class JwtService {
     private Date extractExpiration(String token, boolean isAccessToken) {
         return extractClaim(token, Claims::getExpiration, isAccessToken);
     }
-    
+
     // Returns the correct secret key for signing/verification (access or refresh)
     private Key getSignInKey(boolean isAccessToken) {
         try {
             String secretKey = isAccessToken ? accessSecretKey : refreshSecretKey;
-            
+
             // JWT libraries often use URL-safe Base64, which we need to convert to standard Base64
             String standardBase64 = secretKey
                     .replace('-', '+')
                     .replace('_', '/');
-            
+
             while (standardBase64.length() % 4 != 0) {
                 standardBase64 += '=';
             }
-            
+
             byte[] keyBytes = Decoders.BASE64.decode(standardBase64);
             return Keys.hmacShaKeyFor(keyBytes);
-            
+
         } catch (Exception e) {
             throw new RuntimeException("Invalid secret key format: " + e.getMessage());
         }
     }
-
 }

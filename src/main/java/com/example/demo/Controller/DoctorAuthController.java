@@ -195,7 +195,9 @@ public class DoctorAuthController {
      */
     @GetMapping("/doctors/available")
     public ResponseEntity<Map<String, Object>> getAvailableDoctors() {
+    	System.out.print("we are in doctor auth ");
         Map<String, Object> response = new HashMap();
+        
         List<DoctorDtoForClient> doctors = doctorService.getAvailableAndActive();
         response.put("success", true);
         response.put("data", doctors);
