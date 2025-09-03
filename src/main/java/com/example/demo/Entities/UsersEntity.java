@@ -50,7 +50,7 @@ public class UsersEntity implements UserDetails {
       
     @NotBlank(message = "First Name is required")
     @Pattern(
-        regexp = "^[A-Za-z]{3,30}$",
+        regexp = "^[A-Za-z ]{3,30}$",
         message = "First name must contain only letters and be 3 to 30 characters long"
     )
     @Column(name = "first_name", nullable = false, length = 30)
@@ -58,7 +58,7 @@ public class UsersEntity implements UserDetails {
     
     @NotBlank(message = "Last Name is required")
     @Pattern(
-        regexp = "^[A-Za-z]{3,30}$",
+        regexp = "^[A-Za-z ]{3,30}$",
         message = "Last name must contain only letters and be 3 to 30 characters long"
     )
     @Column(name = "last_name", nullable = false, length = 30)
