@@ -173,6 +173,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     /**
      * Check if authentication should be skipped for the request
+     * * Corrected to properly handle public path matching.
      */
     private boolean shouldSkipAuthentication(String requestURI, String method) {
         // Skip OPTIONS requests (CORS preflight)
@@ -182,7 +183,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         // Public endpoints that don't need authentication
         String[] publicPaths = {
-            "/api/auth/",     // Only /api/auth endpoints are public
+            "/api/auth/", 
             "/pub/",
             "/health",
             "/error",
@@ -190,7 +191,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         };
         
         for (String path : publicPaths) {
-            if (requestURI.contains(path)) {
+            // Use startsWith() for more accurate path matching
+            if (requestURI.startsWith(path)) {
                 return true;
             }
         }
