@@ -258,6 +258,7 @@ class CustomUserDetails implements UserDetails {
             if (role != null) {
                 authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("USER_TYPE_" + role));
             }
+            //cmo
         }
 
         return authorities;

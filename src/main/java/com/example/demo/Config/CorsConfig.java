@@ -34,7 +34,7 @@ public class CorsConfig {
         // ✅ All headers allowed
         configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        // ✅ Allow credentials (for JWT tokens in headers)
+        // ✅ Allow credentials (for JWT tokens in headers)//
         configuration.setAllowCredentials(true);
 
         // ✅ Preflight cache for 1 hour
