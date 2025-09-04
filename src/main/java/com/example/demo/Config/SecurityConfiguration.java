@@ -63,7 +63,7 @@ public class SecurityConfiguration {
             // HTTP requests authorization - Updated for proper endpoint security
             .authorizeHttpRequests(requests -> requests
                 // Public endpoints - no authentication required (only /api/auth/*)
-                .requestMatchers("/api/auth/**", "/pub/**", "/health", "/error", "/actuator/health").permitAll()
+            		.requestMatchers("/api/auth/**").permitAll()
                 
                 // OPTIONS requests ko allow karna hai CORS preflight ke liye
                 .requestMatchers("OPTIONS", "/**").permitAll()
