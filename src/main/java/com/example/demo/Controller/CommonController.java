@@ -2,6 +2,7 @@ package com.example.demo.Controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,13 +13,14 @@ import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Service.UserService;
 
 @RestController
-@RequestMapping("/user")
+@Controller
+@RequestMapping("/api/auth")
 public class CommonController {
 	
 	@Autowired
 	private UserService userService;
 	
-	@GetMapping("/byNumber")
+	@GetMapping("/user/byNumber")
 	public UsersEntity getUserbyMobile(@RequestParam String phoneNumber) {
 	    UsersEntity user = userService.findByPhoneNumber(phoneNumber);
 	    if (user == null) {
