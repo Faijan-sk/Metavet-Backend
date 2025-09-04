@@ -15,13 +15,12 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ✅ GCP deployment ke liye specific origins
+        // ✅ GCP deployment ke liye specific origins (port 8080 remove kiya)
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:3000",           // Local React dev
             "http://localhost:4200",           // Local Angular dev  
-            "http://34.61.254.251",            // GCP frontend (port 80)
+            "http://34.61.254.251",            // GCP frontend (port 80) - MAIN URL
             "http://34.61.254.251:3000",       // GCP frontend (port 3000)
-            "http://34.61.254.251:8080",       // GCP backend
             "https://34.61.254.251",           // GCP frontend HTTPS (port 443)
             "https://34.61.254.251:3000"       // GCP frontend HTTPS (port 3000)
         ));
@@ -34,7 +33,7 @@ public class CorsConfig {
         // ✅ All headers allowed
         configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        // ✅ Allow credentials (for JWT tokens in headers)//
+        // ✅ Allow credentials (for JWT tokens in headers)
         configuration.setAllowCredentials(true);
 
         // ✅ Preflight cache for 1 hour
