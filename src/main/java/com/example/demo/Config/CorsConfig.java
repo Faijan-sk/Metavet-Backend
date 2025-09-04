@@ -15,51 +15,45 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Production और Development दोनों के लिए origins
-        configuration.setAllowedOriginPatterns(Arrays.asList(
-            "http://localhost:3000",   
-            "http://localhost:8080", // Local React development
-            "http://localhost:4200",           // Local Angular development
-            "http://34.61.254.251:3000",  
-            "http://34.61.254.251:8080",
-            // GCP Frontend (React default port)
-            "https://34.61.254.251:3000",     // GCP Frontend HTTPS
-            "http://34.61.254.251:*",         // Any port on GCP IP
-            "https://34.61.254.251:*",        // Any port on GCP IP HTTPS
-            "http://127.0.0.1:*",             // Local development all ports
+        /**
+         * ❌ पहले: तुमने `configuration.setAllowedOriginPatterns(Arrays.asList("*"))` 
+         * और साथ में `setAllowCredentials(true)` किया था।
+         * 👉 Problem: Spring `*` (wildcard) को credentials=true के साथ allow नहीं करता।
+         * 👉 Result: Browser CORS error देता है।
+         *
+         * ✅ अब: specific origins allow किए हैं (local + GCP deploy + common hosting जैसे vercel/netlify)
+         */
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000",          // Local React dev
+            "http://localhost:4200",          // Local Angular dev
+            "http://34.61.254.251:3000",      // GCP frontend (React)
+            "http://34.61.254.251:8080",      // GCP backend
+            "https://34.61.254.251:3000",     // GCP frontend HTTPS
             "https://*.vercel.app",           // Vercel deployments
-            "https://*.netlify.app",          // Netlify deployments
-            "https://*.googleplex.com",       // Google internal
-            "*"                               // Allow all for development (remove in strict production)
+            "https://*.netlify.app"           // Netlify deployments
         ));
 
-        // Allow all HTTP methods
+        // ✅ Allowed methods same रखे
         configuration.setAllowedMethods(Arrays.asList(
             "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"
         ));
 
-        // Allow all headers
+        // ✅ Allowed headers same रखे
         configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        // Allow credentials for authentication
+        // ✅ Credentials true रखा (cookies/auth headers bhejne ke liye)
         configuration.setAllowCredentials(true);
 
-        // Cache preflight response for 1 hour
+        // ✅ Preflight cache (OPTIONS request) 1 hour ke liye
         configuration.setMaxAge(3600L);
 
-        // Expose important headers for frontend
-//        configuration.setExposedHeaders(Arrays.asList(
-//            "Access-Control-Allow-Origin",
-//            "Access-Control-Allow-Credentials",
-//            "Authorization",
-//            "Content-Type",
-//            "X-Total-Count",
-//            "X-Page",
-//            "X-Page-Size",
-//            "X-Requested-With"
-//        ));
+        /**
+         * ❌ पहले: तुमने "*, http://127.0.0.1:* , http://34.61.254.251:*" जैसी entries डाली थी।
+         * 👉 Problem: ये invalid हैं क्योंकि setAllowedOrigins में wildcard port/origin accept नहीं होता।
+         * ✅ अब: साफ कर दिया, सिर्फ valid origins allow किए।
+         */
 
-        // Apply configuration to all paths
+        // Apply configuration to all API paths
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 
