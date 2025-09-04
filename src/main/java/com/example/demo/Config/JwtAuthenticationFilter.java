@@ -57,13 +57,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         final String authHeader = request.getHeader("Authorization");
         final String requestURI = request.getRequestURI();
+        final String method = request.getMethod();
         
         System.out.println("Request URI: " + requestURI);
-        System.out.println("Auth Header: " + authHeader);
+        System.out.println("Request Method: " + method);
+        System.out.println("Auth Header: " + (authHeader != null ? "Present" : "Missing"));
         
-        // Skip authentication for public endpoints
-        if (requestURI.contains("/auth") || requestURI.contains("/pub")) {
-            System.out.println("Skipping authentication for public endpoint");
+        // Skip authentication for public endpoints and OPTIONS requests
+        if (shouldSkipAuthentication(requestURI, method)) {
+            System.out.println("Skipping authentication for: " + requestURI + " [" + method + "]");
             filterChain.doFilter(request, response);
             return;
         }
@@ -71,10 +73,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Check if Authorization header is present and valid
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             System.out.println("Missing or invalid Authorization header");
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            BadRequest apiResponse = new BadRequest(401, "Missing or invalid authorization header", null);
-            response.setContentType("application/json");
-            response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+            handleAuthenticationError(response, 401, "Missing or invalid authorization header");
             return;
         }
         
@@ -83,8 +82,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             
             // Clean quotes if present
             String cleanJwt = jwt.replace("\"", "").trim();
-            System.out.println("Original JWT: " + jwt);
-            System.out.println("Cleaned JWT: " + cleanJwt);
+            System.out.println("Processing JWT token...");
             
             // Extract user info from token
             final String userEmail = jwtService.extractUsername(cleanJwt, true);
@@ -102,10 +100,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Validate token first
                 if (!jwtService.isTokenValid(cleanJwt, true)) {
                     System.out.println("Token validation failed");
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    BadRequest apiResponse = new BadRequest(401, "Invalid or expired token", null);
-                    response.setContentType("application/json");
-                    response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                    handleAuthenticationError(response, 401, "Invalid or expired token");
                     return;
                 }
                 
@@ -121,10 +116,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         System.out.println("Admin authentication successful");
                     } else {
                         System.out.println("Admin not found in database");
-                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                        BadRequest apiResponse = new BadRequest(401, "Admin not found", null);
-                        response.setContentType("application/json");
-                        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                        handleAuthenticationError(response, 401, "Admin not found");
                         return;
                     }
                 } else if ("USER".equals(userType)) {
@@ -135,18 +127,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         System.out.println("User authentication successful");
                     } else {
                         System.out.println("User not found in database");
-                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                        BadRequest apiResponse = new BadRequest(401, "User not found", null);
-                        response.setContentType("application/json");
-                        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                        handleAuthenticationError(response, 401, "User not found");
                         return;
                     }
                 } else {
                     System.out.println("Unknown user type: " + userType);
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    BadRequest apiResponse = new BadRequest(401, "Invalid user type", null);
-                    response.setContentType("application/json");
-                    response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+                    handleAuthenticationError(response, 401, "Invalid user type");
                     return;
                 }
                 
@@ -171,20 +157,64 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             
         } catch (io.jsonwebtoken.ExpiredJwtException expiredJwtException) {
             System.out.println("JWT token expired");
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            BadRequest apiResponse = new BadRequest(401, "JWT token has expired", null);
-            response.setContentType("application/json");
-            response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+            handleAuthenticationError(response, 401, "JWT token has expired");
         } catch (Exception exception) {
             System.out.println("JWT validation error: " + exception.getMessage());
             exception.printStackTrace();
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            BadRequest apiResponse = new BadRequest(401, "Authentication failed: " + exception.getMessage(), null);
-            response.setContentType("application/json");
-            response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+            handleAuthenticationError(response, 401, "Authentication failed: " + exception.getMessage());
         }
     }
 
+    /**
+     * Check if authentication should be skipped for the request
+     */
+    private boolean shouldSkipAuthentication(String requestURI, String method) {
+        // Skip OPTIONS requests (CORS preflight)
+        if ("OPTIONS".equalsIgnoreCase(method)) {
+            return true;
+        }
+        
+        // Public endpoints that don't need authentication
+        String[] publicPaths = {
+            "/api/auth/",     // Only /api/auth endpoints are public
+            "/pub/",
+            "/health",
+            "/error",
+            "/actuator/health"
+        };
+        
+        for (String path : publicPaths) {
+            if (requestURI.contains(path)) {
+                return true;
+            }
+        }
+        
+        // Handle root path and favicon
+        if ("/".equals(requestURI) || "/favicon.ico".equals(requestURI)) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Handle authentication errors consistently
+     */
+    private void handleAuthenticationError(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        
+        // Add CORS headers for error responses
+        response.setHeader("Access-Control-Allow-Origin", "*");
+        response.setHeader("Access-Control-Allow-Credentials", "true");
+        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+        response.setHeader("Access-Control-Allow-Headers", "*");
+        
+        BadRequest apiResponse = new BadRequest(status, message, null);
+        response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
+        response.getWriter().flush();
+    }
 }
 
 // Enhanced Custom UserDetails implementation for both Admin and User
