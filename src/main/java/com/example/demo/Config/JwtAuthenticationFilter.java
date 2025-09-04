@@ -56,31 +56,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         
-        System.out.println("===== Incoming Request Headers =====");
-        request.getHeaderNames().asIterator().forEachRemaining(headerName -> {
-            String headerValue = request.getHeader(headerName);
-            System.out.println(headerName + ": " + headerValue);
-        });
-        System.out.println("====================================");
+        // ✅ Debug logging (production में हटा सकते हैं)
+        System.out.println("===== JWT Filter Debug =====");
+        System.out.println("Request URI: " + request.getRequestURI());
+        System.out.println("Request Method: " + request.getMethod());
+        System.out.println("Auth Header: " + (request.getHeader("Authorization") != null ? "Present" : "Missing"));
+        System.out.println("============================");
 
         final String authHeader = request.getHeader("Authorization");
         final String requestURI = request.getRequestURI();
         final String method = request.getMethod();
 
-        System.out.println("Request URI: " + requestURI);
-        System.out.println("Request Method: " + method);
-        System.out.println("Auth Header: " + (authHeader != null ? "Present" : "Missing"));
-
         // ✅ Skip authentication for public endpoints and OPTIONS requests
         if (shouldSkipAuthentication(requestURI, method)) {
-            System.out.println("Skipping authentication for: " + requestURI + " [" + method + "]");
+            System.out.println("✅ PUBLIC ENDPOINT - Authentication skipped for: " + requestURI + " [" + method + "]");
             filterChain.doFilter(request, response);
             return;
         }
 
-        // ✅ Only protected endpoints will reach here
+        // ✅ Protected endpoints - JWT token required
+        System.out.println("🔒 PROTECTED ENDPOINT - JWT validation required for: " + requestURI);
+        
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("Missing or invalid Authorization header");
+            System.out.println("❌ Missing or invalid Authorization header");
             handleAuthenticationError(response, 401, "Missing or invalid authorization header");
             return;
         }
@@ -88,22 +86,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             final String jwt = authHeader.substring(7);
             String cleanJwt = jwt.replace("\"", "").trim();
-            System.out.println("Processing JWT token...");
+            System.out.println("🔍 Processing JWT token...");
 
             final String userEmail = jwtService.extractUsername(cleanJwt, true);
             final String userType = jwtService.extractUserType(cleanJwt, true);
             final Long userId = jwtService.extractUserId(cleanJwt, true);
 
-            System.out.println("Extracted email: " + userEmail);
-            System.out.println("Extracted userType: " + userType);
-            System.out.println("Extracted userId: " + userId);
+            System.out.println("Extracted - Email: " + userEmail + ", Type: " + userType + ", ID: " + userId);
 
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
             if (userEmail != null && authentication == null) {
                 // Validate token first
                 if (!jwtService.isTokenValid(cleanJwt, true)) {
-                    System.out.println("Token validation failed");
+                    System.out.println("❌ Token validation failed");
                     handleAuthenticationError(response, 401, "Invalid or expired token");
                     return;
                 }
@@ -115,9 +111,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     if (adminOpt.isPresent()) {
                         AdminsEntity admin = adminOpt.get();
                         userDetails = new CustomUserDetails(admin.getEmail(), "ADMIN", cleanJwt, admin.getId(), admin.getRole());
-                        System.out.println("Admin authentication successful");
+                        System.out.println("✅ Admin authentication successful");
                     } else {
-                        System.out.println("Admin not found in database");
+                        System.out.println("❌ Admin not found in database");
                         handleAuthenticationError(response, 401, "Admin not found");
                         return;
                     }
@@ -125,14 +121,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UsersEntity user = userRepository.findByEmail(userEmail);
                     if (user != null) {
                         userDetails = new CustomUserDetails(user.getEmail(), "USER", cleanJwt, user.getUid(), user.getUserType());
-                        System.out.println("User authentication successful");
+                        System.out.println("✅ User authentication successful");
                     } else {
-                        System.out.println("User not found in database");
+                        System.out.println("❌ User not found in database");
                         handleAuthenticationError(response, 401, "User not found");
                         return;
                     }
                 } else {
-                    System.out.println("Unknown user type: " + userType);
+                    System.out.println("❌ Unknown user type: " + userType);
                     handleAuthenticationError(response, 401, "Invalid user type");
                     return;
                 }
@@ -144,22 +140,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
 
+                    // Set request attributes for controllers
                     request.setAttribute("userType", userType);
                     request.setAttribute("userEmail", userEmail);
                     request.setAttribute("userId", userId);
 
-                    System.out.println("Authentication set successfully");
+                    System.out.println("✅ Authentication context set successfully");
                 }
             }
 
-            System.out.println("Proceeding to controller...");
+            System.out.println("➡️ Proceeding to controller...");
             filterChain.doFilter(request, response);
 
         } catch (io.jsonwebtoken.ExpiredJwtException expiredJwtException) {
-            System.out.println("JWT token expired");
+            System.out.println("❌ JWT token expired");
             handleAuthenticationError(response, 401, "JWT token has expired");
         } catch (Exception exception) {
-            System.out.println("JWT validation error: " + exception.getMessage());
+            System.out.println("❌ JWT validation error: " + exception.getMessage());
             exception.printStackTrace();
             handleAuthenticationError(response, 401, "Authentication failed: " + exception.getMessage());
         }
@@ -169,16 +166,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * ✅ Skip authentication for public endpoints
      */
     private boolean shouldSkipAuthentication(String requestURI, String method) {
+        // Always allow OPTIONS requests for CORS preflight
         if ("OPTIONS".equalsIgnoreCase(method)) {
             return true;
         }
 
+        // ✅ Public endpoints - these don't need authentication
         String[] publicPrefixes = {
-            "/api/auth",    // fixed
-            "/pub",
-            "/health",
-            "/error",
-            "/actuator/health"
+            "/api/auth/",          // All auth endpoints (login, register, etc.)
+            "/pub/",               // Public static content
+            "/health",             // Health check
+            "/error",              // Error pages
+            "/actuator/health"     // Actuator health endpoint
         };
 
         for (String path : publicPrefixes) {
@@ -187,18 +186,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        return "/".equals(requestURI) || "/favicon.ico".equals(requestURI);
+        // Basic system endpoints
+        return "/".equals(requestURI) || 
+               "/favicon.ico".equals(requestURI) ||
+               requestURI.startsWith("/static/");
     }
 
+    /**
+     * ✅ Handle authentication errors with proper CORS headers
+     */
     private void handleAuthenticationError(HttpServletResponse response, int status, String message) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
+        // ✅ Add CORS headers for error responses
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Credentials", "true");
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
         response.setHeader("Access-Control-Allow-Headers", "*");
+        response.setHeader("Access-Control-Max-Age", "3600");
 
         BadRequest apiResponse = new BadRequest(status, message, null);
         response.getWriter().write(objectMapper.writeValueAsString(apiResponse));
@@ -206,7 +213,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 }
 
-// ✅ Custom UserDetails
+// ✅ Custom UserDetails implementation
 class CustomUserDetails implements UserDetails {
     private final String email;
     private final String userType;
@@ -223,30 +230,18 @@ class CustomUserDetails implements UserDetails {
     }
 
     @Override
-    public String getUsername() {
-        return email;
-    }
+    public String getUsername() { return email; }
 
     @Override
-    public String getPassword() {
-        return null;
-    }
+    public String getPassword() { return null; }
 
-    public String getUserType() {
-        return userType;
-    }
+    public String getUserType() { return userType; }
 
-    public String getToken() {
-        return token;
-    }
+    public String getToken() { return token; }
 
-    public Long getUserId() {
-        return userId;
-    }
+    public Long getUserId() { return userId; }
 
-    public Integer getRole() {
-        return role;
-    }
+    public Integer getRole() { return role; }
 
     @Override
     public java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> getAuthorities() {

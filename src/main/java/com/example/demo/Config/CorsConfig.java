@@ -15,45 +15,35 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        /**
-         * ❌ पहले: तुमने `configuration.setAllowedOriginPatterns(Arrays.asList("*"))` 
-         * और साथ में `setAllowCredentials(true)` किया था।
-         * 👉 Problem: Spring `*` (wildcard) को credentials=true के साथ allow नहीं करता।
-         * 👉 Result: Browser CORS error देता है।
-         *
-         * ✅ अब: specific origins allow किए हैं (local + GCP deploy + common hosting जैसे vercel/netlify)
-         */
+        // ✅ GCP deployment ke liye specific origins
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000",          // Local React dev
-            "http://localhost:4200",          // Local Angular dev
-            "http://34.61.254.251:3000",      // GCP frontend (React)
-            "http://34.61.254.251:8080",      // GCP backend
-            "https://34.61.254.251:3000",     // GCP frontend HTTPS
-            "https://*.vercel.app",           // Vercel deployments
-            "https://*.netlify.app"           // Netlify deployments
+            "http://localhost:3000",           // Local React dev
+            "http://localhost:4200",           // Local Angular dev  
+            "http://34.61.254.251",            // GCP frontend (port 80)
+            "http://34.61.254.251:3000",       // GCP frontend (port 3000)
+            "http://34.61.254.251:8080",       // GCP backend
+            "https://34.61.254.251",           // GCP frontend HTTPS (port 443)
+            "https://34.61.254.251:3000"       // GCP frontend HTTPS (port 3000)
         ));
 
-        // ✅ Allowed methods same रखे
+        // ✅ All HTTP methods allowed
         configuration.setAllowedMethods(Arrays.asList(
             "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"
         ));
 
-        // ✅ Allowed headers same रखे
+        // ✅ All headers allowed
         configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        // ✅ Credentials true रखा (cookies/auth headers bhejne ke liye)
+        // ✅ Allow credentials (for JWT tokens in headers)
         configuration.setAllowCredentials(true);
 
-        // ✅ Preflight cache (OPTIONS request) 1 hour ke liye
+        // ✅ Preflight cache for 1 hour
         configuration.setMaxAge(3600L);
 
-        /**
-         * ❌ पहले: तुमने "*, http://127.0.0.1:* , http://34.61.254.251:*" जैसी entries डाली थी।
-         * 👉 Problem: ये invalid हैं क्योंकि setAllowedOrigins में wildcard port/origin accept नहीं होता।
-         * ✅ अब: साफ कर दिया, सिर्फ valid origins allow किए।
-         */
+        // ✅ Expose Authorization header to frontend
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
 
-        // Apply configuration to all API paths
+        // Apply to all paths
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 
