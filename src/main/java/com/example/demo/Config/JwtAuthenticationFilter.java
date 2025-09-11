@@ -74,8 +74,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // ✅ Protected endpoints - JWT token required
-        System.out.println("🔒 PROTECTED ENDPOINT - JWT validation required for: " + requestURI);
+       
         
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             System.out.println("❌ Missing or invalid Authorization header");
@@ -89,10 +88,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             System.out.println("🔍 Processing JWT token...");
 
             final String userEmail = jwtService.extractUsername(cleanJwt, true);
+           
             final String userType = jwtService.extractUserType(cleanJwt, true);
             final Long userId = jwtService.extractUserId(cleanJwt, true);
 
-            System.out.println("Extracted - Email: " + userEmail + ", Type: " + userType + ", ID: " + userId);
+            System.out.println("**************************************Extracted - Email: " + userEmail + ", Type: " + userType + ", ID: " + userId);
 
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 

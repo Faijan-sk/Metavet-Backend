@@ -3,7 +3,7 @@ package com.example.demo.Repository;
 import com.example.demo.Entities.UsersEntity;
 
 import java.util.List;
-import java.util.Optional; // <-- Added import for Optional
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,11 +13,9 @@ import org.springframework.stereotype.Repository;
 public interface UserRepo extends JpaRepository<UsersEntity, Long> {
     
     // ============ EXISTING METHODS (DO NOT CHANGE) ============
-    
+
     // Check if email already exists
     boolean existsByEmail(String email);
-    
-    
     
     // Check if phone number already exists
     boolean existsByPhoneNumber(String phoneNumber);
@@ -25,17 +23,19 @@ public interface UserRepo extends JpaRepository<UsersEntity, Long> {
     // Find user by email (changed to Optional)
     UsersEntity findByEmail(String email);
     
+    Optional<UsersEntity> getByEmail(String email);  // FIXED: Correct method signature
+    
     // Find user by phone number
     UsersEntity findByPhoneNumber(String phoneNumber);
     
     // Find user by email and phone number (useful for login)
     UsersEntity findByEmailOrPhoneNumber(String email, String phoneNumber);
     
-    //find user by Uid 
+    // Find user by Uid 
     UsersEntity findByUid(Long uid);
     
     // ============ NEW METHODS FOR APPOINTMENT FUNCTIONALITY ============
-    
+
     List<UsersEntity> findByUserType(Integer userType);
     
     List<UsersEntity> findByUserTypeOrderByFirstNameAsc(Integer userType);

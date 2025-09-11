@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.demo.Config.SpringSecurityAuditorAware;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.PetsEntity;
 import com.example.demo.Entities.UsersEntity;
@@ -29,21 +30,27 @@ public class PetsService {
     @Autowired
     private DoctorRepo doctorsRepository; // Assuming you have this repository
     
+    @Autowired
+    private SpringSecurityAuditorAware auditorAware;
+    
     // Create a new pet
     public PetsEntity createPet(PetsEntity pet) {
         try {
-            // Validate owner exists and is a client (userType = 1)
-            if (pet.getOwner() == null || pet.getOwner().getUid() == null) {
-                throw new RuntimeException("Pet owner is required");
-            }
-            
-            UsersEntity owner = usersRepository.findById(pet.getOwner().getUid())
-                .orElseThrow(() -> new RuntimeException("Owner not found"));
-            
-            if (owner.getUserType() != 1) { // 1 = Client
-                throw new RuntimeException("Only clients can own pets");
-            }
-            
+//            // Validate owner exists and is a client (userType = 1)
+//            if (pet.getOwner() == null || pet.getOwner().getUid() == null) {
+//                throw new RuntimeException("Pet owner is required");
+//            }
+//            
+//            UsersEntity owner = usersRepository.findById(pet.getOwner().getUid())
+//                .orElseThrow(() -> new RuntimeException("Owner not found"));
+//            
+//            if (owner.getUserType() != 1) { // 1 = Client
+//                throw new RuntimeException("Only clients can own pets");
+//            }
+//            
+        	
+        	UsersEntity owner = auditorAware.getCurrentAuditor().orElse(null);
+        	System.out.println("owner => " + owner.getFirstName());
             pet.setOwner(owner);
             
             // Validate doctor if provided

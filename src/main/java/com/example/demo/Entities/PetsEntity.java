@@ -32,8 +32,6 @@ public class PetsEntity {
     
     // Foreign key relationship with UsersEntity (Pet Owner)
     @ManyToOne
-    @JoinColumn(name = "owner_id", referencedColumnName = "uid", nullable = false)
-    @NotNull(message = "Pet owner is required")
     private UsersEntity owner;
     
     // Foreign key relationship with DoctorsEntity (Treating Doctor) - Optional
@@ -93,7 +91,7 @@ public class PetsEntity {
     @Column(name = "medical_notes", length = 500)
     private String medicalNotes;
     
-    @Column(name = "created_at")
+    @Column(name = "created_at") 
     private LocalDateTime createdAt;
     
     @Column(name = "updated_at")
