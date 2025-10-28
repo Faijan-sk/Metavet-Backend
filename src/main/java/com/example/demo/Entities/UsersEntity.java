@@ -82,6 +82,9 @@ public class UsersEntity implements UserDetails {
     // Token field only for response, not saved in DB
     @Transient
     private String token;
+    
+    @Column(name = "is_profile_completed", nullable = false)
+    private boolean isProfileCompleted = false;
 
     // Automatically set timestamps
     @PrePersist
@@ -240,5 +243,13 @@ public class UsersEntity implements UserDetails {
 
     public void setToken(String token) {
         this.token = token;
+    }
+    
+    public boolean isProfileCompleted() {
+        return isProfileCompleted;
+    }
+
+    public void setProfileCompleted(boolean isProfileCompleted) {
+        this.isProfileCompleted = isProfileCompleted;
     }
 }

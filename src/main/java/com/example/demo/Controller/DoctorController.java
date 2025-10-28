@@ -42,36 +42,38 @@ public class DoctorController {
      * Create a new doctor profile
      * POST /api/doctors
      */
-    @PostMapping
-    public ResponseEntity<?> createDoctor(@Valid @RequestBody DoctorsEntity doctor) {
-        try {
-            DoctorsEntity savedDoctor = doctorService.createDoctorEnhanced(doctor);
-            
-            // Explicitly return 201 with proper headers
-            return ResponseEntity.status(201)
-                .header("Content-Type", "application/json")
-                .body(Map.of(
-                    "success", true,
-                    "message", "Doctor profile created successfully",
-                    "data", savedDoctor
-                ));
-                
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(400)
-                .header("Content-Type", "application/json")
-                .body(Map.of(
-                    "success", false,
-                    "message", e.getMessage()
-                ));
-        } catch (Exception e) {
-            return ResponseEntity.status(500)
-                .header("Content-Type", "application/json")
-                .body(Map.of(
-                    "success", false,
-                    "message", "Failed to create doctor profile: " + e.getMessage()
-                ));
+   @PostMapping
+public ResponseEntity<?> createDoctor(@Valid @RequestBody DoctorsEntity doctor) {
+    try {
+        DoctorsEntity savedDoctor = doctorService.createDoctorEnhanced(doctor);
+        
+        // Initialize lazy fields to avoid serialization issues
+        if (savedDoctor.getUser() != null) {
+            savedDoctor.getUser().getEmail(); // Touch the lazy field
         }
+        
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(Map.of(
+                "success", true,
+                "message", "Doctor profile created successfully. User profile marked as completed.",
+                "data", savedDoctor,
+                "profileCompleted", savedDoctor.getUser().isProfileCompleted()
+            ));
+    } catch (IllegalArgumentException e) {
+        return ResponseEntity.badRequest()
+            .body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+    } catch (Exception e) {
+        e.printStackTrace();
+        return ResponseEntity.internalServerError()
+            .body(Map.of(
+                "success", false,
+                "message", "Failed to create doctor profile: " + e.getMessage()
+            ));
     }
+}
 
     /**
      * Update doctor profile by user ID

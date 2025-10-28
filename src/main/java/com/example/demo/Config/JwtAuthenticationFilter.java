@@ -3,8 +3,8 @@ package com.example.demo.Config;
 import java.io.IOException;
 import java.util.Optional;
 
-import org.hibernate.validator.internal.util.stereotypes.Lazy;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -56,28 +56,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         
-        // ✅ Debug logging (production में हटा सकते हैं)
-        System.out.println("===== JWT Filter Debug =====");
-        System.out.println("Request URI: " + request.getRequestURI());
-        System.out.println("Request Method: " + request.getMethod());
-        System.out.println("Auth Header: " + (request.getHeader("Authorization") != null ? "Present" : "Missing"));
-        System.out.println("============================");
-
-        final String authHeader = request.getHeader("Authorization");
         final String requestURI = request.getRequestURI();
         final String method = request.getMethod();
-
-        // ✅ Skip authentication for public endpoints and OPTIONS requests
+        
+        System.out.println("===== JWT Filter Debug =====");
+        System.out.println("Request URI: " + requestURI);
+        System.out.println("Request Method: " + method);
+        
+        // ✅ CRITICAL FIX: Skip authentication for public endpoints FIRST
         if (shouldSkipAuthentication(requestURI, method)) {
-            System.out.println("✅ PUBLIC ENDPOINT - Authentication skipped for: " + requestURI + " [" + method + "]");
+            System.out.println("✅ PUBLIC ENDPOINT - Skipping authentication for: " + requestURI);
             filterChain.doFilter(request, response);
             return;
         }
 
-       
+        // Now check for Authorization header (only for protected endpoints)
+        final String authHeader = request.getHeader("Authorization");
+        System.out.println("Auth Header: " + (authHeader != null ? "Present" : "Missing"));
+        System.out.println("============================");
         
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            System.out.println("❌ Missing or invalid Authorization header");
+            System.out.println("❌ Missing or invalid Authorization header for protected endpoint");
             handleAuthenticationError(response, 401, "Missing or invalid authorization header");
             return;
         }
@@ -88,11 +87,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             System.out.println("🔍 Processing JWT token...");
 
             final String userEmail = jwtService.extractUsername(cleanJwt, true);
-           
             final String userType = jwtService.extractUserType(cleanJwt, true);
             final Long userId = jwtService.extractUserId(cleanJwt, true);
 
-            System.out.println("**************************************Extracted - Email: " + userEmail + ", Type: " + userType + ", ID: " + userId);
+            System.out.println("Extracted - Email: " + userEmail + ", Type: " + userType + ", ID: " + userId);
 
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -182,14 +180,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         for (String path : publicPrefixes) {
             if (requestURI.startsWith(path)) {
+                System.out.println("✅ Matched public prefix: " + path);
                 return true;
             }
         }
 
         // Basic system endpoints
-        return "/".equals(requestURI) || 
-               "/favicon.ico".equals(requestURI) ||
-               requestURI.startsWith("/static/");
+        boolean isBasicEndpoint = "/".equals(requestURI) || 
+                                  "/favicon.ico".equals(requestURI) ||
+                                  requestURI.startsWith("/static/");
+        
+        if (isBasicEndpoint) {
+            System.out.println("✅ Matched basic endpoint");
+        }
+        
+        return isBasicEndpoint;
     }
 
     /**
@@ -258,7 +263,6 @@ class CustomUserDetails implements UserDetails {
             if (role != null) {
                 authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("USER_TYPE_" + role));
             }
-        
         }
 
         return authorities;

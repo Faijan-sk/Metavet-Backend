@@ -63,61 +63,82 @@ public class DoctorService {
      * @throws IllegalArgumentException - For validation errors
      * @throws RuntimeException - For database or system errors
      */
-    @Transactional(rollbackFor = Exception.class)
-    public DoctorsEntity createDoctorEnhanced(DoctorsEntity doctor) {
-        
-        // 1. Basic validation
-        if (doctor == null) {
-            throw new IllegalArgumentException("Doctor data cannot be null");
-        }
-        
-        if (doctor.getUser() == null || doctor.getUser().getUid() == null) {
-            throw new IllegalArgumentException("User information is required");
-        }
-        
-        // 2. Check if user exists and is valid doctor
-        UsersEntity user = doctor.getUser();
-        if (user.getUserType() != 2) {
-            throw new IllegalArgumentException("User is not registered as a doctor (userType must be 2)");
-        }
-        
-        // 3. Check if user already has doctor profile
-        if (doctorRepository.existsByUser(user)) {
-            throw new IllegalArgumentException("Doctor profile already exists for user ID: " + user.getUid());
-        }
-        
-        // 4. Check license number uniqueness
-        if (doctor.getLicenseNumber() != null && 
-            doctorRepository.existsByLicenseNumber(doctor.getLicenseNumber())) {
-            throw new IllegalArgumentException("License number already exists: " + doctor.getLicenseNumber());
-        }
-        
-        // 5. Validate date constraints
-        validateDoctorDates(doctor);
-        
-        // 6. Set default values and timestamps
-        setDefaultValues(doctor);
-        
-        // 7. Profile status validation and setting
-        validateAndSetProfileStatus(doctor, doctor.getDoctorProfileStatus());
-        
-        try {
-            // 8. Save doctor profile
-            DoctorsEntity savedDoctor = doctorRepository.save(doctor);
-            
-            // Log successful creation
-            System.out.println("Doctor profile created successfully for user: " + user.getUid() + 
-                             ", License: " + doctor.getLicenseNumber());
-            
-            return savedDoctor;
-            
-        } catch (Exception e) {
-            // Log error and re-throw with more context
-            System.err.println("Error creating doctor profile for user: " + user.getUid() + 
-                              ". Error: " + e.getMessage());
-            throw new RuntimeException("Failed to save doctor profile: " + e.getMessage(), e);
-        }
+   @Transactional(rollbackFor = Exception.class)
+public DoctorsEntity createDoctorEnhanced(DoctorsEntity doctor) {
+    
+    // 1. Basic validation
+    if (doctor == null) {
+        throw new IllegalArgumentException("Doctor data cannot be null");
     }
+    
+    if (doctor.getUser() == null || doctor.getUser().getUid() == null) {
+        throw new IllegalArgumentException("User information is required");
+    }
+    
+    // 2. Fetch the complete user entity from database
+    Long userId = doctor.getUser().getUid();
+    UsersEntity user = userRepository.findByUid(userId);
+    
+    if (user == null) {
+        throw new IllegalArgumentException("User not found with ID: " + userId);
+    }
+    
+    // 3. Check if user is valid doctor
+    if (user.getUserType() != 2) {
+        throw new IllegalArgumentException("User is not registered as a doctor (userType must be 2)");
+    }
+    
+    // 4. Check if user already has doctor profile
+    if (doctorRepository.existsByUser(user)) {
+        throw new IllegalArgumentException("Doctor profile already exists for user ID: " + user.getUid());
+    }
+    
+    // 5. Check if profile is already marked as completed
+    if (user.isProfileCompleted()) {
+        throw new IllegalArgumentException("User profile is already completed. Cannot create duplicate doctor profile.");
+    }
+    
+    // 6. Check license number uniqueness
+    if (doctor.getLicenseNumber() != null && 
+        doctorRepository.existsByLicenseNumber(doctor.getLicenseNumber())) {
+        throw new IllegalArgumentException("License number already exists: " + doctor.getLicenseNumber());
+    }
+    
+    // 7. Validate date constraints
+    validateDoctorDates(doctor);
+    
+    // 8. Set the fetched user entity to doctor (important for proper relationship)
+    doctor.setUser(user);
+    
+    // 9. Set default values and timestamps
+    setDefaultValues(doctor);
+    
+    // 10. Profile status validation and setting
+    validateAndSetProfileStatus(doctor, doctor.getDoctorProfileStatus());
+    
+    try {
+        // 11. Save doctor profile first
+        DoctorsEntity savedDoctor = doctorRepository.save(doctor);
+        
+        // 12. Update user's profile completion status
+        user.setProfileCompleted(true);
+        userRepository.save(user);
+        
+        // Log successful creation
+        System.out.println("Doctor profile created successfully for user: " + user.getUid() + 
+                         ", License: " + doctor.getLicenseNumber() + 
+                         ", Profile completed: true");
+        
+        return savedDoctor;
+        
+    } catch (Exception e) {
+        // Log error and re-throw with more context
+        System.err.println("Error creating doctor profile for user: " + user.getUid() + 
+                          ". Error: " + e.getMessage());
+        e.printStackTrace();
+        throw new RuntimeException("Failed to save doctor profile: " + e.getMessage(), e);
+    }
+}
 
     /**
      * Validate date-related fields

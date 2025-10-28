@@ -9,6 +9,7 @@ import com.example.demo.Enum.DoctorProfileStatus;
 import com.example.demo.Enum.EmploymentStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -43,6 +44,7 @@ public class DoctorsEntity {
     // Foreign key relationship with UsersEntity
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "uid", nullable = false, unique = true)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private UsersEntity user;
 
 
