@@ -77,4 +77,6 @@ public interface UserRepo extends JpaRepository<UsersEntity, Long> {
     
     @Query(value = "SELECT * FROM users_entity WHERE user_type = :userType LIMIT :limit", nativeQuery = true)
     List<UsersEntity> findByUserTypeWithLimit(@Param("userType") Integer userType, @Param("limit") int limit);
+    
+  
 }

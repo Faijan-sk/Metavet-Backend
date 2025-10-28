@@ -24,20 +24,21 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "pets_entity")
 public class PetsEntity {
-    
+	
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "pid")
     private Long pid;
-    
+       
     // Foreign key relationship with UsersEntity (Pet Owner)
     @ManyToOne
     private UsersEntity owner;
-    
+   
     // Foreign key relationship with DoctorsEntity (Treating Doctor) - Optional
     @ManyToOne
     @JoinColumn(name = "doctor_id", referencedColumnName = "doctorId", nullable = true)
     private DoctorsEntity treatingDoctor;
+    
     
     @NotBlank(message = "Pet name is required")
     @Size(min = 2, max = 50, message = "Pet name must be between 2 and 50 characters")
@@ -45,17 +46,20 @@ public class PetsEntity {
     @Column(name = "pet_name", nullable = false, length = 50)
     private String petName;
     
+    
     @NotNull(message = "Pet age is required")
     @Min(value = 0, message = "Pet age cannot be negative")
     @Max(value = 30, message = "Pet age cannot exceed 30 years")
     @Column(name = "pet_age", nullable = false)
     private Integer petAge;
     
+    
     @NotNull(message = "Pet height is required")
     @DecimalMin(value = "0.1", message = "Pet height must be at least 0.1 cm")
     @DecimalMax(value = "300.0", message = "Pet height cannot exceed 300 cm")
     @Column(name = "pet_height", nullable = false, precision = 5, scale = 2)
     private BigDecimal petHeight; // in cm
+    
     
     @NotNull(message = "Pet weight is required")
     @DecimalMin(value = "0.1", message = "Pet weight must be at least 0.1 kg")
@@ -69,23 +73,28 @@ public class PetsEntity {
     @Column(name = "pet_species", nullable = false, length = 30)
     private String petSpecies; // Dog, Cat, Bird, etc.
     
+    
     @NotBlank(message = "Pet gender is required")
     @Pattern(regexp = "^(Male|Female)$", message = "Pet gender must be either 'Male' or 'Female'")
     @Column(name = "pet_gender", nullable = false, length = 6)
     private String petGender;
+    
     
     @Size(max = 50, message = "Pet breed cannot exceed 50 characters")
     @Pattern(regexp = "^[A-Za-z\\s]*$", message = "Pet breed must contain only letters and spaces")
     @Column(name = "pet_breed", length = 50)
     private String petBreed;
     
+    
     @NotNull(message = "Vaccination status is required")
     @Column(name = "is_vaccinated", nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean isVaccinated = false;
     
+    
     @NotNull(message = "Neutered status is required")
     @Column(name = "is_neutered", nullable = false, columnDefinition = "BOOLEAN DEFAULT false")
     private Boolean isNeutered = false;
+    
     
     @Size(max = 500, message = "Medical notes cannot exceed 500 characters")
     @Column(name = "medical_notes", length = 500)
@@ -103,6 +112,7 @@ public class PetsEntity {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
+
     
     @PreUpdate
     protected void onUpdate() {

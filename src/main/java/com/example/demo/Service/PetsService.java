@@ -83,9 +83,32 @@ public class PetsService {
     }
     
     // Get pets by owner ID
-    public List<PetsEntity> getPetsByOwnerId(Long ownerId) {
-        return petRepository.findByOwner_Uid(ownerId);
+// Get pets by owner ID
+public List<PetsEntity> getPetsByOwnerId() {
+    try {
+        // Get current logged-in user from security context
+        UsersEntity loginUser = auditorAware.getCurrentAuditor()
+            .orElseThrow(() -> new RuntimeException("User not authenticated or not logged in"));
+        
+        System.out.println("🔍 Fetching pets for owner: " + loginUser.getFirstName() 
+            + " " + loginUser.getLastName() + " (ID: " + loginUser.getUid() + ")");
+        
+        // Validate user is a client (userType = 1)
+        if (loginUser.getUserType() != 1) {
+            throw new RuntimeException("Only clients can view their pets. Your user type: " 
+                + loginUser.getUserTypeAsString());
+        }
+        
+        List<PetsEntity> pets = petRepository.findByOwner_Uid(loginUser.getUid());
+        System.out.println("✅ Found " + pets.size() + " pets for user ID: " + loginUser.getUid());
+        
+        return pets;
+        
+    } catch (Exception e) {
+        System.out.println("❌ Error in getPetsByOwnerId: " + e.getMessage());
+        throw new RuntimeException("Error fetching pets: " + e.getMessage());
     }
+}
     
     // Get pets by doctor ID
     public List<PetsEntity> getPetsByDoctorId(Long doctorId) {

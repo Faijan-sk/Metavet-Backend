@@ -18,7 +18,7 @@ public class CorsConfig {
         // ✅ GCP deployment ke liye specific origins (port 8080 remove kiya)
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:3000",           // Local React dev
-            "http://localhost:4200",           // Local Angular dev  
+            "http://localhost:5173",           // Local Angular dev  
             "http://34.61.254.251",            // GCP frontend (port 80) - MAIN URL
             "http://34.61.254.251:3000",       // GCP frontend (port 3000)
             "https://34.61.254.251",           // GCP frontend HTTPS (port 443)

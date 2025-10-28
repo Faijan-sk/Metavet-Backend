@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/auth/admin")
+@RequestMapping("/api/auth/admin")
 @CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AdminController {
     

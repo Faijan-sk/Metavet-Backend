@@ -100,13 +100,12 @@ public class PetController {
     }
     
     // Get pets by owner ID
-    @GetMapping("/owner/{ownerId}")
-    public ResponseEntity<Map<String, Object>> getPetsByOwner(@PathVariable Long ownerId) {
+    @GetMapping("/owner")
+    public ResponseEntity<Map<String, Object>> getPetsByOwner() {
         Map<String, Object> response = new HashMap<>();
         
         try {
-            List<PetsEntity> pets = petService.getPetsByOwnerId(ownerId);
-            
+            List<PetsEntity> pets = petService.getPetsByOwnerId();
             response.put("status", "success");
             response.put("message", "Pets retrieved successfully");
             response.put("data", pets);
