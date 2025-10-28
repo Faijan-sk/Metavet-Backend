@@ -102,7 +102,6 @@ public class PetsEntity {
     
     @Column(name = "created_at") 
     private LocalDateTime createdAt;
-    //s
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
