@@ -19,8 +19,8 @@ public class CorsConfig {
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:3000",           // Local React dev
             "http://localhost:5173",           // Local Angular dev  
-            "http://34.61.254.251",            // GCP frontend (port 80) - MAIN URL
-            "http://34.61.254.251:3000",       // GCP frontend (port 3000)
+            "http://35.206.66.49",            // GCP frontend (port 80) - MAIN URL
+            "http://35.206.66.49:8080",       // GCP frontend (port 3000)
             "https://34.61.254.251",           // GCP frontend HTTPS (port 443)
             "https://34.61.254.251:3000"       // GCP frontend HTTPS (port 3000)
         ));
