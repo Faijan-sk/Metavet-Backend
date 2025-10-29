@@ -1,5 +1,6 @@
 package com.example.demo.Controller;
 
+
 import com.example.demo.Entities.AdminsEntity;
 import com.example.demo.Service.AdminService;
 import com.example.demo.Service.JwtService;
@@ -19,6 +20,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth/admin")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AdminController {
     
     @Autowired
@@ -95,8 +97,9 @@ public class AdminController {
             
             AdminsEntity admin = adminService.loginAdmin(usernameOrEmail, password);
             
-            // Generate access token for admin
+            // Generate both access and refresh tokens for admin
             String jwtAccessToken = jwtService.generateToken(admin);
+//            String jwtRefreshToken = jwtService.generateRefreshToken(admin);
             
             List<Map<String, String>> permissions = List.of(
                 Map.of("subject", "doctor-management", "action", "read"),
@@ -115,11 +118,12 @@ public class AdminController {
             userData.put("fullName", admin.getFullName());
             userData.put("username", admin.getUsername());
             userData.put("email", admin.getEmail());
-            userData.put("userType", "ADMIN");
+            userData.put("userType", "ADMIN"); // Added userType
             userData.put("permission", permissions);
             
             response.put("success", true);
             response.put("accessToken", jwtAccessToken);
+//            response.put("refreshToken", jwtRefreshToken); // Added refresh token
             response.put("userData", userData);
             
             return ResponseEntity.ok(response);
@@ -131,10 +135,7 @@ public class AdminController {
         }
     }
 
-    // Refresh token, verify-token, getAll, getById, update, change-password, delete, check-username, check-email, getAdminsByRole
-    // (Rest of controller methods unchanged — keep same as before)
-    // For brevity I am not duplicating every unchanged method here — replace only the @CrossOrigin annotation removal.
-    
+    // NEW: Refresh token endpoint for admin
     @PostMapping("/refresh-token")
     public ResponseEntity<Map<String, Object>> refreshAdminToken(@RequestBody Map<String, String> request) {
         Map<String, Object> response = new HashMap<>();
@@ -148,15 +149,18 @@ public class AdminController {
                 return ResponseEntity.badRequest().body(response);
             }
             
+            // Validate refresh token
             if (!jwtService.isRefreshTokenValid(refreshToken)) {
                 response.put("success", false);
                 response.put("message", "Invalid or expired refresh token!");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
             
+            // Extract admin info from refresh token
             String email = jwtService.extractUsername(refreshToken, false);
             Long adminId = jwtService.extractUserId(refreshToken, false);
             
+            // Get admin from database
             Optional<AdminsEntity> adminOpt = adminService.getAdminById(adminId);
             if (!adminOpt.isPresent()) {
                 response.put("success", false);
@@ -165,6 +169,8 @@ public class AdminController {
             }
             
             AdminsEntity admin = adminOpt.get();
+            
+            // Generate new access token
             String newAccessToken = jwtService.generateToken(admin);
             
             response.put("success", true);
@@ -180,6 +186,7 @@ public class AdminController {
         }
     }
 
+    // NEW: Verify admin token endpoint
     @GetMapping("/verify-token")
     public ResponseEntity<Map<String, Object>> verifyAdminToken(HttpServletRequest request) {
         Map<String, Object> response = new HashMap<>();
@@ -200,6 +207,7 @@ public class AdminController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
             
+            // Extract admin info from token
             String email = jwtService.extractUsername(token, true);
             Long adminId = jwtService.extractUserId(token, true);
             String userType = jwtService.extractUserType(token, true);
@@ -227,6 +235,148 @@ public class AdminController {
         }
     }
 
-    // The rest of the unchanged controller methods (getAllAdmins, getAdminById, updateAdmin, changePassword, deleteAdmin,
-    // checkUsernameAvailability, checkEmailAvailability, getAdminsByRole) remain same as before — only annotation removed.
+    @GetMapping("/all")
+    public ResponseEntity<Map<String, Object>> getAllAdmins() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<AdminsEntity> admins = adminService.getAllAdmins();
+            response.put("success", true);
+            response.put("message", "Admins retrieved successfully!");
+            response.put("data", admins);
+            response.put("count", admins.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> getAdminById(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Optional<AdminsEntity> adminOpt = adminService.getAdminById(id);
+            if (adminOpt.isPresent()) {
+                AdminsEntity admin = adminOpt.get();
+                response.put("success", true);
+                response.put("message", "Admin found!");
+                response.put("data", Map.of(
+                    "id", admin.getId(),
+                    "fullName", admin.getFullName(),
+                    "username", admin.getUsername(),
+                    "email", admin.getEmail(),
+                    "role", admin.getRole(),
+                    "roleName", admin.getRoleName()
+                ));
+                return ResponseEntity.ok(response);
+            } else {
+                response.put("success", false);
+                response.put("message", "Admin not found!");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> updateAdmin(@PathVariable Long id, @RequestBody AdminsEntity updatedAdmin) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            AdminsEntity admin = adminService.updateAdmin(id, updatedAdmin);
+            response.put("success", true);
+            response.put("message", "Admin updated successfully!");
+            response.put("data", Map.of(
+                "id", admin.getId(),
+                "fullName", admin.getFullName(),
+                "username", admin.getUsername(),
+                "email", admin.getEmail(),
+                "role", admin.getRole(),
+                "roleName", admin.getRoleName()
+            ));
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @PutMapping("/{id}/change-password")
+    public ResponseEntity<Map<String, Object>> changePassword(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String oldPassword = request.get("oldPassword");
+            String newPassword = request.get("newPassword");
+            if (oldPassword == null || newPassword == null) {
+                response.put("success", false);
+                response.put("message", "Old password and new password are required!");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            adminService.changePassword(id, oldPassword, newPassword);
+            response.put("success", true);
+            response.put("message", "Password changed successfully!");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> deleteAdmin(@PathVariable Long id) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            adminService.deleteAdmin(id);
+            response.put("success", true);
+            response.put("message", "Admin deleted successfully!");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @GetMapping("/check-username/{username}")
+    public ResponseEntity<Map<String, Object>> checkUsernameAvailability(@PathVariable String username) {
+        Map<String, Object> response = new HashMap<>();
+        boolean isAvailable = adminService.isUsernameAvailable(username);
+        response.put("success", true);
+        response.put("available", isAvailable);
+        response.put("message", isAvailable ? "Username is available!" : "Username is already taken!");
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/check-email/{email}")
+    public ResponseEntity<Map<String, Object>> checkEmailAvailability(@PathVariable String email) {
+        Map<String, Object> response = new HashMap<>();
+        boolean isAvailable = adminService.isEmailAvailable(email);
+        response.put("success", true);
+        response.put("available", isAvailable);
+        response.put("message", isAvailable ? "Email is available!" : "Email is already registered!");
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/role/{role}")
+    public ResponseEntity<Map<String, Object>> getAdminsByRole(@PathVariable Integer role) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<AdminsEntity> admins = adminService.getAdminsByRole(role);
+            response.put("success", true);
+            response.put("message", "Admins with role '" + role + "' retrieved successfully!");
+            response.put("data", admins);
+            response.put("count", admins.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }

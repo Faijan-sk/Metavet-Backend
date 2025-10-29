@@ -9,9 +9,12 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.example.demo.Entities.AdminsEntity;
 import com.example.demo.Entities.UsersEntity;
@@ -25,10 +28,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    @Autowired
+    private HandlerExceptionResolver handlerExceptionResolver;
 
     @Autowired
     private JwtService jwtService;
@@ -47,20 +52,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private UserRepo userRepository;
 
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request,
+    protected void doFilterInternal(@NonNull HttpServletRequest request, 
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
-
-        System.out.print("############################################## ");
-
+        
         final String requestURI = request.getRequestURI();
         final String method = request.getMethod();
-
+        
         System.out.println("===== JWT Filter Debug =====");
         System.out.println("Request URI: " + requestURI);
         System.out.println("Request Method: " + method);
-
-        // Skip authentication for public endpoints and OPTIONS preflight
+        
+        // ✅ CRITICAL FIX: Skip authentication for public endpoints FIRST
         if (shouldSkipAuthentication(requestURI, method)) {
             System.out.println("✅ PUBLIC ENDPOINT - Skipping authentication for: " + requestURI);
             filterChain.doFilter(request, response);
@@ -71,10 +74,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String authHeader = request.getHeader("Authorization");
         System.out.println("Auth Header: " + (authHeader != null ? "Present" : "Missing"));
         System.out.println("============================");
-
+        
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             System.out.println("❌ Missing or invalid Authorization header for protected endpoint");
-            handleAuthenticationError(response, request, 401, "Missing or invalid authorization header");
+            handleAuthenticationError(response, 401, "Missing or invalid authorization header");
             return;
         }
 
@@ -95,7 +98,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // Validate token first
                 if (!jwtService.isTokenValid(cleanJwt, true)) {
                     System.out.println("❌ Token validation failed");
-                    handleAuthenticationError(response, request, 401, "Invalid or expired token");
+                    handleAuthenticationError(response, 401, "Invalid or expired token");
                     return;
                 }
 
@@ -109,7 +112,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         System.out.println("✅ Admin authentication successful");
                     } else {
                         System.out.println("❌ Admin not found in database");
-                        handleAuthenticationError(response, request, 401, "Admin not found");
+                        handleAuthenticationError(response, 401, "Admin not found");
                         return;
                     }
                 } else if ("USER".equals(userType)) {
@@ -119,12 +122,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         System.out.println("✅ User authentication successful");
                     } else {
                         System.out.println("❌ User not found in database");
-                        handleAuthenticationError(response, request, 401, "User not found");
+                        handleAuthenticationError(response, 401, "User not found");
                         return;
                     }
                 } else {
                     System.out.println("❌ Unknown user type: " + userType);
-                    handleAuthenticationError(response, request, 401, "Invalid user type");
+                    handleAuthenticationError(response, 401, "Invalid user type");
                     return;
                 }
 
@@ -149,16 +152,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (io.jsonwebtoken.ExpiredJwtException expiredJwtException) {
             System.out.println("❌ JWT token expired");
-            handleAuthenticationError(response, request, 401, "JWT token has expired");
+            handleAuthenticationError(response, 401, "JWT token has expired");
         } catch (Exception exception) {
             System.out.println("❌ JWT validation error: " + exception.getMessage());
             exception.printStackTrace();
-            handleAuthenticationError(response, request, 401, "Authentication failed: " + exception.getMessage());
+            handleAuthenticationError(response, 401, "Authentication failed: " + exception.getMessage());
         }
     }
 
     /**
-     * Skip authentication for public endpoints
+     * ✅ Skip authentication for public endpoints
      */
     private boolean shouldSkipAuthentication(String requestURI, String method) {
         // Always allow OPTIONS requests for CORS preflight
@@ -166,13 +169,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
 
-        // Public endpoints - these don't need authentication
+        // ✅ Public endpoints - these don't need authentication
         String[] publicPrefixes = {
-            "/api/auth/",
-            "/pub/",
-            "/health",
-            "/error",
-            "/actuator/health"
+            "/api/auth/",          // All auth endpoints (login, register, etc.)
+            "/pub/",               // Public static content
+            "/health",             // Health check
+            "/error",              // Error pages
+            "/actuator/health"     // Actuator health endpoint
         };
 
         for (String path : publicPrefixes) {
@@ -182,37 +185,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        boolean isBasicEndpoint = "/".equals(requestURI) ||
+        // Basic system endpoints
+        boolean isBasicEndpoint = "/".equals(requestURI) || 
                                   "/favicon.ico".equals(requestURI) ||
                                   requestURI.startsWith("/static/");
-
+        
         if (isBasicEndpoint) {
             System.out.println("✅ Matched basic endpoint");
         }
-
+        
         return isBasicEndpoint;
     }
 
     /**
-     * Handle authentication errors with proper CORS headers (echo Origin)
+     * ✅ Handle authentication errors with proper CORS headers
      */
-    private void handleAuthenticationError(HttpServletResponse response, HttpServletRequest request, int status, String message) throws IOException {
+    private void handleAuthenticationError(HttpServletResponse response, int status, String message) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        // Echo back the Origin header to satisfy credentialed requests
-        String origin = request.getHeader("Origin");
-        if (origin == null || origin.isEmpty()) {
-            // fallback for dev; in prod better to always have explicit allowedOrigins
-            origin = "*";
-        }
-
-        response.setHeader("Access-Control-Allow-Origin", origin);
-        response.setHeader("Vary", "Origin");
+        // ✅ Add CORS headers for error responses
+        response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Credentials", "true");
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-        response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept");
+        response.setHeader("Access-Control-Allow-Headers", "*");
         response.setHeader("Access-Control-Max-Age", "3600");
 
         BadRequest apiResponse = new BadRequest(status, message, null);
@@ -221,8 +218,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 }
 
-// CustomUserDetails class (unchanged)
-class CustomUserDetails implements org.springframework.security.core.userdetails.UserDetails {
+// ✅ Custom UserDetails implementation
+class CustomUserDetails implements UserDetails {
     private final String email;
     private final String userType;
     private final String token;

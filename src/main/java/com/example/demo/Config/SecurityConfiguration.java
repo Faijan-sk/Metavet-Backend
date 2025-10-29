@@ -2,7 +2,6 @@ package com.example.demo.Config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -13,10 +12,10 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 import com.example.demo.Service.UserDetailsServiceImpl;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -29,7 +28,6 @@ public class SecurityConfiguration {
     public SecurityConfiguration(JwtAuthenticationFilter jwtAuthenticationFilter,
             UserDetailsServiceImpl userDetailsService,
             CorsConfigurationSource corsConfigurationSource) {
-        System.out.print("%%%%%%%%%%%%5");
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.userDetailsService = userDetailsService;
         this.corsConfigurationSource = corsConfigurationSource;
@@ -37,19 +35,16 @@ public class SecurityConfiguration {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        System.out.print("%%%%%%%%%%%%%4");
         return new BCryptPasswordEncoder();
     }
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        System.out.print("%%%%%%%%%%%%%%%3");
         return config.getAuthenticationManager();
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        System.out.print("%%%%%%%%%%%%%%%%%%%%%%%%2");
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
@@ -58,29 +53,45 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        System.out.print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%1");
         http
-            // Enable CORS (use our CorsConfig bean)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            // Disable CSRF for APIs
+            // CSRF disable kar diya hai
             .csrf(csrf -> csrf.disable())
-            // Authorization rules
+            
+            // CORS configuration - separate CorsConfig class se inject kar rahe hain
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            
+            // HTTP requests authorization - Updated for proper endpoint security
             .authorizeHttpRequests(requests -> requests
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // Public endpoints - no authentication required (only /api/auth/*)
+            		.requestMatchers("/api/auth/**").permitAll()
+                
+                // OPTIONS requests ko allow karna hai CORS preflight ke liye
+                .requestMatchers("OPTIONS", "/**").permitAll()
+                
+                // Admin endpoints - require ADMIN role (ab /auth/admin/* protected hai)
                 .requestMatchers("/api/admin/**", "/auth/admin/**").hasRole("ADMIN")
+                
+                // User endpoints - require USER role
                 .requestMatchers("/api/user/**").hasRole("USER")
+                
+                // Common endpoints - accessible by both ADMIN and USER
                 .requestMatchers("/api/common/**").hasAnyRole("ADMIN", "USER")
-                .anyRequest().authenticated()
-            )
-            // Stateless session
-            .sessionManagement(management ->
+                
+                // Any other request requires authentication
+                .anyRequest().authenticated())
+            
+            // Session management - stateless
+            .sessionManagement(management -> 
                 management.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            
             // Authentication provider
             .authenticationProvider(authenticationProvider())
-            // JWT filter
+            
+            // JWT filter - Updated filter that handles both Admin and User
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+    
+    
 }
