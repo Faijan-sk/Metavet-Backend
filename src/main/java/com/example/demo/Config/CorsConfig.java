@@ -15,8 +15,10 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
+        System.out.print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ lavde chal na ");
         // ✅ GCP deployment ke liye specific origins (port 8080 remove kiya)
         configuration.setAllowedOrigins(Arrays.asList(
+        		
             "http://localhost:3000",           // Local React dev
             "http://localhost:5173",           // Local Angular dev  
             "http://35.206.66.49",            // GCP frontend (port 80) - MAIN b URL
