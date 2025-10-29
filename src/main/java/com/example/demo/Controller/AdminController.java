@@ -1,5 +1,6 @@
 package com.example.demo.Controller;
 
+
 import com.example.demo.Entities.AdminsEntity;
 import com.example.demo.Service.AdminService;
 import com.example.demo.Service.JwtService;
@@ -19,7 +20,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth/admin")
-// ❌ REMOVED: @CrossOrigin - using global CORS config instead
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AdminController {
     
     @Autowired
@@ -40,7 +41,6 @@ public class AdminController {
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> registerAdmin(@RequestBody Map<String, String> request) {
         Map<String, Object> response = new HashMap<>();
-        System.out.println("✅ Admin registration API called");
       
         try {
             AdminsEntity admin = new AdminsEntity();
@@ -74,7 +74,6 @@ public class AdminController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            System.err.println("❌ Admin registration error: " + e.getMessage());
             response.put("success", false);
             response.put("message", e.getMessage());
             return ResponseEntity.badRequest().body(response);
@@ -84,14 +83,11 @@ public class AdminController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> loginAdmin(@RequestBody Map<String, String> loginRequest) {
         Map<String, Object> response = new HashMap<>();
-        System.out.println("✅ Admin login API called");
-        System.out.println("📝 Request body: " + loginRequest);
+        System.out.println("Admin login API called");
         
         try {
             String usernameOrEmail = loginRequest.get("userName");
             String password = loginRequest.get("password");
-            
-            System.out.println("📧 Username/Email: " + usernameOrEmail);
             
             if (usernameOrEmail == null || password == null) {
                 response.put("success", false);
@@ -100,11 +96,10 @@ public class AdminController {
             }
             
             AdminsEntity admin = adminService.loginAdmin(usernameOrEmail, password);
-            System.out.println("✅ Admin authenticated: " + admin.getEmail());
             
             // Generate both access and refresh tokens for admin
             String jwtAccessToken = jwtService.generateToken(admin);
-            System.out.println("✅ JWT token generated");
+//            String jwtRefreshToken = jwtService.generateRefreshToken(admin);
             
             List<Map<String, String>> permissions = List.of(
                 Map.of("subject", "doctor-management", "action", "read"),
@@ -123,30 +118,27 @@ public class AdminController {
             userData.put("fullName", admin.getFullName());
             userData.put("username", admin.getUsername());
             userData.put("email", admin.getEmail());
-            userData.put("userType", "ADMIN");
+            userData.put("userType", "ADMIN"); // Added userType
             userData.put("permission", permissions);
             
             response.put("success", true);
             response.put("accessToken", jwtAccessToken);
+//            response.put("refreshToken", jwtRefreshToken); // Added refresh token
             response.put("userData", userData);
-            
-            System.out.println("✅ Login response prepared successfully");
             
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            System.err.println("❌ Admin login error: " + e.getMessage());
-            e.printStackTrace();
             response.put("success", false);
             response.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
     }
 
+    // NEW: Refresh token endpoint for admin
     @PostMapping("/refresh-token")
     public ResponseEntity<Map<String, Object>> refreshAdminToken(@RequestBody Map<String, String> request) {
         Map<String, Object> response = new HashMap<>();
-        System.out.println("✅ Admin refresh token API called");
         
         try {
             String refreshToken = request.get("refreshToken");
@@ -188,17 +180,16 @@ public class AdminController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            System.err.println("❌ Token refresh error: " + e.getMessage());
             response.put("success", false);
             response.put("message", "Token refresh failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
     }
 
+    // NEW: Verify admin token endpoint
     @GetMapping("/verify-token")
     public ResponseEntity<Map<String, Object>> verifyAdminToken(HttpServletRequest request) {
         Map<String, Object> response = new HashMap<>();
-        System.out.println("✅ Admin verify token API called");
         
         try {
             String authHeader = request.getHeader("Authorization");
@@ -238,7 +229,6 @@ public class AdminController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            System.err.println("❌ Token verification error: " + e.getMessage());
             response.put("success", false);
             response.put("message", "Token verification failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
