@@ -1,3 +1,4 @@
+
 package com.example.demo.Config;
 
 import org.springframework.context.annotation.Bean;
@@ -54,22 +55,22 @@ public class SecurityConfiguration {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            // ✅ CRITICAL FIX: CORS must be FIRST, before CSRF
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
+            
             // CSRF disable kar diya hai
             .csrf(csrf -> csrf.disable())
             
-            // CORS configuration - separate CorsConfig class se inject kar rahe hain
-            .cors(cors -> cors.configurationSource(corsConfigurationSource))
-            
             // HTTP requests authorization - Updated for proper endpoint security
             .authorizeHttpRequests(requests -> requests
-                // Public endpoints - no authentication required (only /api/auth/*)
-            		.requestMatchers("/api/auth/**").permitAll()
+                // ✅ FIXED: Public endpoints - no authentication required
+                .requestMatchers("/api/auth/**").permitAll()
                 
-                // OPTIONS requests ko allow karna hai CORS preflight ke liye
+                // ✅ FIXED: Allow all OPTIONS requests for CORS preflight
                 .requestMatchers("OPTIONS", "/**").permitAll()
                 
-                // Admin endpoints - require ADMIN role (ab /auth/admin/* protected hai)
-                .requestMatchers("/api/admin/**", "/auth/admin/**").hasRole("ADMIN")
+                // Admin endpoints - require ADMIN role
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 
                 // User endpoints - require USER role
                 .requestMatchers("/api/user/**").hasRole("USER")
@@ -92,6 +93,5 @@ public class SecurityConfiguration {
 
         return http.build();
     }
-    
-    
 }
+

@@ -1,3 +1,4 @@
+
 package com.example.demo.Config;
 
 import java.util.Arrays;
@@ -14,7 +15,7 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // ✅ GCP deployment ke liye specific origins (port 8080 remove kiya)
         // ✅ FIXED: Using setAllowedOriginPatterns instead of setAllowedOrigins for better compatibility
         configuration.setAllowedOriginPatterns(Arrays.asList(
@@ -28,34 +29,35 @@ public class CorsConfig {
             "http://34.61.254.251:8080",    // GCP frontend HTTPS (port 443)
             "https://34.61.254.251:3000"    // GCP frontend HTTPS (port 3000)
         ));
-        
+
         // ✅ All HTTP methods allowed
         configuration.setAllowedMethods(Arrays.asList(
-            "GET", 
-            "POST", 
-            "PUT", 
-            "DELETE", 
-            "OPTIONS", 
-            "PATCH", 
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "OPTIONS",
+            "PATCH",
             "HEAD"
         ));
-        
+
         // ✅ All headers allowed
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        
+
         // ✅ Allow credentials (for JWT tokens in headers)
         configuration.setAllowCredentials(true);
-        
+
         // ✅ Preflight cache for 1 hour
         configuration.setMaxAge(3600L);
-        
+
         // ✅ Expose Authorization header to frontend
         configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
-        
+
         // Apply to all paths
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        
+
         return source;
     }
 }
+
