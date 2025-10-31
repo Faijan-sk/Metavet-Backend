@@ -2,6 +2,7 @@ package com.example.demo.Repository;
 
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.UsersEntity;
+import com.example.demo.Enum.DayOfWeek;
 import com.example.demo.Enum.DoctorProfileStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
@@ -134,6 +135,9 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
     List<DoctorsEntity> findTop5BySpecializationAndDoctorProfileStatusOrderByExperienceYearsDesc(
             String specialization, DoctorProfileStatus status
     );
+    
+    @Query("SELECT DISTINCT d.doctor FROM DoctorDays d WHERE d.dayOfWeek = :day")
+    List<DoctorsEntity> findDoctorsByDay(@Param("day") DayOfWeek day);
     
 
 }

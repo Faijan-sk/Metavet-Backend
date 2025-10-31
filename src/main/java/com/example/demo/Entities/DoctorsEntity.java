@@ -9,7 +9,9 @@ import com.example.demo.Enum.DoctorProfileStatus;
 import com.example.demo.Enum.EmploymentStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -169,6 +171,24 @@ public class DoctorsEntity {
  
     @Column(length = 15)
     private String emergencyContactNumber;
+    
+    
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore  // Yeh add karo taaki availableDays serialize na ho jab doctor return ho
+    private List<DoctorDays> availableDays;
+
+    
+    
+    public List<DoctorDays> getAvailableDays() {
+        return availableDays;
+    }
+
+    public void setAvailableDays(List<DoctorDays> availableDays) {
+        this.availableDays = availableDays;
+    }
+
+    
+    
 
     // Getters and Setters
     public Long getDoctorId() {
@@ -186,14 +206,6 @@ public class DoctorsEntity {
     public void setUser(UsersEntity user) {
         this.user = user;
     }
-
- //   public List<DoctorAvailabilityEntity> getAvailabilities() {
-//        return availabilities;
-//    }
-//
-//    public void setAvailabilities(List<DoctorAvailabilityEntity> availabilities) {
-//        this.availabilities = availabilities;
-//    }
 
     public Integer getExperienceYears() {
         return experienceYears;
@@ -429,7 +441,7 @@ public class DoctorsEntity {
 
   
   	
-    public DoctorsEntity(Long doctorId, UsersEntity user, List<DoctorAvailabilityEntity> availabilities,
+    public DoctorsEntity(Long doctorId, UsersEntity user,
             Integer experienceYears, String hospitalClinicName, String hospitalClinicAddress, String pincode,
             String address, String country, String city, String state, String bio, Double consultationFee,
             Boolean isAvailable, Boolean profileCompleted, LocalDateTime createdAt, LocalDateTime updatedAt,
@@ -440,7 +452,6 @@ public class DoctorsEntity {
             String updatedBy, String emergencyContactNumber) {
         this.doctorId = doctorId;
         this.user = user;
-//        this.availabilities = availabilities; 
         this.experienceYears = experienceYears;
         this.hospitalClinicName = hospitalClinicName;
         this.hospitalClinicAddress = hospitalClinicAddress;
@@ -452,7 +463,6 @@ public class DoctorsEntity {
         this.bio = bio;
         this.consultationFee = consultationFee;
         this.isAvailable = isAvailable;
-
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.gender = gender;
@@ -462,11 +472,9 @@ public class DoctorsEntity {
         this.licenseExpiryDate = licenseExpiryDate;
         this.qualification = qualification;
         this.specialization = specialization;
-       
         this.previousWorkplace = previousWorkplace;
         this.joiningDate = joiningDate;
         this.resignationDate = resignationDate;
-       
         this.employmentType = employmentType;
         this.isActive = isActive;
         this.createdBy = createdBy;
