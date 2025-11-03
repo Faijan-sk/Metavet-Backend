@@ -1,7 +1,6 @@
 package com.example.demo.Controller;
 
 import java.util.List;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,7 +11,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.Dto.DoctorDayRequest;
 import com.example.demo.Entities.DoctorDays;
+import com.example.demo.Entities.DoctorSlots;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Enum.DayOfWeek;
 import com.example.demo.Service.DoctorDaysService;
@@ -24,12 +25,12 @@ public class DoctorDaysController {
     @Autowired
     private DoctorDaysService doctorDaysService;
 
-    // API 1: Create days for a doctor (already correct)
+    // API 1: Create days with time slots for a doctor
     @PostMapping("/doctor/{doctorId}")
     public ResponseEntity<List<DoctorDays>> addDoctorDays(
-            @PathVariable long doctorId, 
-            @RequestBody List<DayOfWeek> days) {
-        List<DoctorDays> createdDays = doctorDaysService.createDaysForDoctor(doctorId, days);
+            @PathVariable long doctorId,
+            @RequestBody List<DoctorDayRequest> dayRequests) {
+        List<DoctorDays> createdDays = doctorDaysService.createDaysForDoctor(doctorId, dayRequests);
         return ResponseEntity.ok(createdDays);
     }
 
@@ -47,7 +48,21 @@ public class DoctorDaysController {
         return ResponseEntity.ok(doctors);
     }
 
-    // API 4: Alternative - Get doctors by day using query parameter
+    // API 4: Get all slots for a doctor
+    @GetMapping("/doctor/{doctorId}/slots")
+    public ResponseEntity<List<DoctorSlots>> getDoctorSlotss(@PathVariable long doctorId) {
+        List<DoctorSlots> slots = doctorDaysService.getDoctorSlotss(doctorId);
+        return ResponseEntity.ok(slots);
+    }
+
+    // API 5: Get slots for a specific doctor day
+    @GetMapping("/doctor-day/{doctorDayId}/slots")
+    public ResponseEntity<List<DoctorSlots>> getSlotsForDoctorDay(@PathVariable long doctorDayId) {
+        List<DoctorSlots> slots = doctorDaysService.getSlotsForDoctorDay(doctorDayId);
+        return ResponseEntity.ok(slots);
+    }
+
+    // API 6: Alternative - Get doctors by day using query parameter
     @GetMapping("/find-doctors")
     public ResponseEntity<List<DoctorsEntity>> findDoctorsByDay(@RequestParam DayOfWeek day) {
         List<DoctorsEntity> doctors = doctorDaysService.getDoctorsByDay(day);
