@@ -1020,6 +1020,8 @@ public DoctorsEntity createDoctorEnhanced(DoctorsEntity doctor) {
     }
 
     // Helper method for mapping entity -> DTO
-
+    public Long getDoctorIdByUserUid(Long uid) {
+        return doctorRepository.findDoctorIdByUserUid(uid);
+    }
     
 }

@@ -72,5 +72,10 @@ public interface AppointmentRepo extends JpaRepository<Appointment, Long> {
 	        LocalDate appointmentDate,
 	        AppointmentStatus status
 	);
+	// add inside AppointmentRepo
+	List<Appointment> findByDoctorIdAndAppointmentDateAndStatus(Long doctorId, LocalDate appointmentDate, AppointmentStatus status);
+
+//	List<Appointment> findByDoctorIdAndStatus(Long doctorId, AppointmentStatus status); // already present but safe to keep
+
 	
 }

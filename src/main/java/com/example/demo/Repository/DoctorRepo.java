@@ -139,5 +139,7 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
     @Query("SELECT DISTINCT d.doctor FROM DoctorDays d WHERE d.dayOfWeek = :day")
     List<DoctorsEntity> findDoctorsByDay(@Param("day") DayOfWeek day);
     
+    @Query("SELECT d.doctorId FROM DoctorsEntity d WHERE d.user.uid = :uid")
+    Long findDoctorIdByUserUid(@Param("uid") Long uid);
 
 }

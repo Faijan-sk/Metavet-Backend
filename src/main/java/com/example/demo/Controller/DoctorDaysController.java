@@ -20,27 +20,52 @@ import com.example.demo.Entities.DoctorSlots;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Enum.DayOfWeek;
 import com.example.demo.Service.DoctorDaysService;
+import com.example.demo.Service.DoctorService;
 
 @RestController
 @RequestMapping("/api/doctor-days")
 public class DoctorDaysController {
-
-    @Autowired
+	@Autowired
     private DoctorDaysService doctorDaysService;
 
-    @PostMapping("/doctor/{doctorId}")
+    @Autowired
+    private DoctorService doctorService;
+
+    @PostMapping("/doctor/{userUid}/days")
     public ResponseEntity<?> addDoctorDays(
-            @PathVariable long doctorId,
+            @PathVariable("userUid") Long userUid,
             @RequestBody List<DoctorDayRequest> dayRequests) {
+
         try {
+            if (userUid == null) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "User uid is required in path"));
+            }
+
+            // doctorId ko uid se fetch karo
+            Long doctorId = doctorService.getDoctorIdByUserUid(userUid);
+ System.out.println("KKKKKKKKKKKKKKKKK" + doctorId);
+            // agar repository query null return kare toh 404
+            if (doctorId == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Doctor profile not found for user uid: " + userUid));
+            }
+
+            // create days (service mein validation/exception throw kar sakta hai)
             List<DoctorDays> createdDays = doctorDaysService.createDaysForDoctor(doctorId, dayRequests);
+
             return ResponseEntity.status(HttpStatus.CREATED).body(createdDays);
-        } catch (RuntimeException ex) {
+
+        } catch (IllegalArgumentException ex) {
+            // validation related errors from service
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", ex.getMessage()));
+        } catch (RuntimeException ex) {
+            // generic runtime errors
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal server error", "details", ex.getMessage()));
         }
     }
-
     @GetMapping("/doctor/{doctorId}")
     public ResponseEntity<?> getDoctorDays(@PathVariable long doctorId) {
         try {

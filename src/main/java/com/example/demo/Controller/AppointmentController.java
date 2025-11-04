@@ -8,6 +8,8 @@ import com.example.demo.Entities.DoctorSlots;
 import com.example.demo.Enum.AppointmentStatus;
 import com.example.demo.Enum.DayOfWeek;
 import com.example.demo.Service.AppointmentService;
+import com.example.demo.Service.DoctorService;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,9 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/appointments")
 public class AppointmentController {
+	
+    @Autowired
+    private DoctorService doctorService;
 
     private static final Logger logger = LoggerFactory.getLogger(AppointmentController.class);
 
@@ -68,7 +73,6 @@ public class AppointmentController {
         }
     }
 
-
     /**
      * ✅ API 3: Book an appointment
      * POST /api/appointments/book
@@ -98,7 +102,7 @@ public class AppointmentController {
             Long userId = currentUser.getUid(); // use uid as userId
 
             // Optional: ensure this user is client (userType == 1)
-            if (currentUser.getUserType() != 1) {
+            if (!isClient(currentUser)) {
                 logger.info("User {} attempted booking but is not a client. userType={}", userId, currentUser.getUserType());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(Map.of("error", "Only clients can book appointments"));
@@ -168,7 +172,94 @@ public class AppointmentController {
     }
 
     /**
-     * API 6: Get appointments by status for a user
+     * NEW API: Get appointments for a doctor with optional date and status filters
+     * GET /api/appointments/doctor/{doctorId}/filter?date=2025-11-10&status=BOOKED
+     */
+    @GetMapping("/doctor/{doctorId}/filter")
+    public ResponseEntity<?> getDoctorAppointmentsFiltered(
+            @PathVariable Long doctorId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) AppointmentStatus status) {
+        try {
+            List<Appointment> appointments = appointmentService.getDoctorAppointments(doctorId, date, status);
+            return ResponseEntity.ok(Map.of(
+                    "doctorId", doctorId,
+                    "date", date,
+                    "status", status,
+                    "totalAppointments", appointments.size(),
+                    "appointments", appointments
+            ));
+        } catch (RuntimeException ex) {
+            logger.warn("getDoctorAppointmentsFiltered error: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        } catch (Exception ex) {
+            logger.error("getDoctorAppointmentsFiltered unexpected error", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Unexpected error: " + ex.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ FIXED API: Get appointments for the logged-in doctor (from access token)
+     * GET /api/appointments/my-appointments-doctor?date=2025-11-10&status=BOOKED
+     *
+     * This extracts doctor UID from the access token via SpringSecurityAuditorAware,
+     * then converts it to doctorId using DoctorService
+     */
+    @GetMapping("/my-appointments-doctor")
+    public ResponseEntity<?> getMyAppointmentsDoctor(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) AppointmentStatus status) {
+        try {
+            // 1) Get current logged-in user from token
+            Optional<UsersEntity> currentUserOpt = auditorAware.getCurrentAuditor();
+            if (currentUserOpt.isEmpty()) {
+                logger.warn("Unauthenticated attempt to access doctor appointments");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "User not authenticated"));
+            }
+            
+            UsersEntity currentUser = currentUserOpt.get();
+            Long userUid = currentUser.getUid();
+            logger.debug("Fetching appointments for user uid: {}", userUid);
+            
+            // 2) Convert user uid to doctor id using DoctorService
+            Long doctorId = doctorService.getDoctorIdByUserUid(userUid);
+            
+            if (doctorId == null) {
+                logger.warn("Doctor profile not found for user uid: {}", userUid);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Doctor profile not found for user uid: " + userUid));
+            }
+            
+            logger.debug("Resolved doctorId {} for userUid {}", doctorId, userUid);
+            
+            // 3) Fetch appointments using doctorId
+            List<Appointment> appointments = appointmentService.getDoctorAppointments(doctorId, date, status);
+            
+            return ResponseEntity.ok(Map.of(
+                    "userUid", userUid,
+                    "doctorId", doctorId,
+                    "date", date != null ? date.toString() : "all",
+                    "status", status != null ? status.toString() : "all",
+                    "totalAppointments", appointments.size(),
+                    "appointments", appointments
+            ));
+            
+        } catch (RuntimeException ex) {
+            logger.error("getMyAppointmentsDoctor runtime error: {}", ex.getMessage(), ex);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        } catch (Exception ex) {
+            logger.error("getMyAppointmentsDoctor unexpected error", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Internal server error: " + ex.getMessage()));
+        }
+    }
+
+    /**
+     * API 7: Get appointments by status for a user
      * GET /api/appointments/user/{userId}/status/{status}
      */
     @GetMapping("/user/{userId}/status/{status}")
@@ -186,7 +277,7 @@ public class AppointmentController {
     }
 
     /**
-     * API 7: Cancel an appointment
+     * API 8: Cancel an appointment
      * PUT /api/appointments/{appointmentId}/cancel
      */
     @PutMapping("/{appointmentId}/cancel")
@@ -202,7 +293,7 @@ public class AppointmentController {
     }
 
     /**
-     * API 8: Update appointment status
+     * API 9: Update appointment status
      * PUT /api/appointments/{appointmentId}/status
      */
     @PutMapping("/{appointmentId}/status")
@@ -220,6 +311,10 @@ public class AppointmentController {
         }
     }
 
+    /**
+     * ✅ API 10: Get booked appointments
+     * GET /api/appointments/booked?doctorId=1&date=2025-11-10
+     */
     @GetMapping("/booked")
     public ResponseEntity<?> getBookedAppointments(
             @RequestParam Long doctorId,
@@ -240,9 +335,9 @@ public class AppointmentController {
                     .body(Map.of("error", ex.getMessage()));
         }
     }
-    
+
     /**
-     * ✅ API: Get all appointments for logged-in user
+     * ✅ API 11: Get all appointments for logged-in user
      * GET /api/appointments/my-appointments
      */
     @GetMapping("/my-appointments")
@@ -255,26 +350,191 @@ public class AppointmentController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "User not authenticated"));
             }
-            
+
             UsersEntity currentUser = currentUserOpt.get();
             Long userId = currentUser.getUid();
-            
+
             // 2) Fetch appointments for this user
             List<Appointment> appointments = appointmentService.getUserAppointments(userId);
-            
+
             // 3) Return all appointments
             return ResponseEntity.ok(Map.of(
                     "userId", userId,
                     "totalAppointments", appointments.size(),
                     "appointments", appointments
             ));
-            
+
         } catch (RuntimeException ex) {
             logger.warn("getMyAppointments error: {}", ex.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", ex.getMessage()));
         }
     }
-    
-    
+
+    /**
+     * ✅ API 12: Delete an appointment (Admin/Direct delete)
+     * DELETE /api/appointments/{appointmentId}
+     *
+     * This permanently deletes the appointment from database
+     */
+    @DeleteMapping("/{appointmentId}")
+    public ResponseEntity<?> deleteAppointment(@PathVariable Long appointmentId) {
+        try {
+            appointmentService.deleteAppointment(appointmentId);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Appointment deleted successfully",
+                    "appointmentId", appointmentId
+            ));
+        } catch (RuntimeException ex) {
+            logger.warn("deleteAppointment error: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    /**
+     * ✅ API 13: Delete own appointment (User delete with ownership verification)
+     * DELETE /api/appointments/my-appointments/{appointmentId}
+     *
+     * This allows users to delete only their own appointments
+     * Automatically gets userId from logged-in user
+     */
+    @DeleteMapping("/my-appointments/{appointmentId}")
+    public ResponseEntity<?> deleteMyAppointment(@PathVariable Long appointmentId) {
+        try {
+            // 1) Get current logged-in user from token
+            Optional<UsersEntity> currentUserOpt = auditorAware.getCurrentAuditor();
+            if (currentUserOpt.isEmpty()) {
+                logger.info("Unauthenticated attempt to delete appointment");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "User not authenticated"));
+            }
+
+            UsersEntity currentUser = currentUserOpt.get();
+            Long userId = currentUser.getUid();
+
+            // 2) Delete appointment with ownership verification
+            appointmentService.deleteAppointmentByUser(appointmentId, userId);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Appointment deleted successfully",
+                    "appointmentId", appointmentId,
+                    "userId", userId
+            ));
+
+        } catch (RuntimeException ex) {
+            logger.warn("deleteMyAppointment error: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    // ----------------- Helper methods -----------------
+
+    /**
+     * ✅ IMPROVED: Null-safe check if the user is a doctor.
+     * Assumes doctor can be represented by:
+     *  - numeric value 2 (Integer/Long) OR
+     *  - String "DOCTOR" (case-insensitive)
+     */
+    private boolean isDoctor(UsersEntity user) {
+        if (user == null) {
+            logger.debug("isDoctor check: user is null");
+            return false;
+        }
+        
+        Object userType = user.getUserType();
+        if (userType == null) {
+            logger.debug("isDoctor check: userType is null for user {}", user.getUid());
+            return false;
+        }
+
+        logger.debug("isDoctor check: user {} has userType {} (class: {})", 
+                user.getUid(), userType, userType.getClass().getSimpleName());
+
+        // Integer / Long checks
+        if (userType instanceof Integer) {
+            boolean result = ((Integer) userType).intValue() == 2;
+            logger.debug("isDoctor (Integer): {}", result);
+            return result;
+        }
+        if (userType instanceof Long) {
+            boolean result = ((Long) userType).longValue() == 2L;
+            logger.debug("isDoctor (Long): {}", result);
+            return result;
+        }
+
+        // String check (e.g., "DOCTOR", "doctor", or "2")
+        if (userType instanceof String) {
+            String s = ((String) userType).trim();
+            if (s.equalsIgnoreCase("doctor")) {
+                logger.debug("isDoctor (String match): true");
+                return true;
+            }
+            try {
+                boolean result = Integer.parseInt(s) == 2;
+                logger.debug("isDoctor (String numeric): {}", result);
+                return result;
+            } catch (NumberFormatException ignore) {
+                logger.debug("isDoctor (String): not a doctor string");
+                return false;
+            }
+        }
+
+        // Enum or other type: try toString match
+        try {
+            String s = userType.toString();
+            if (s.equalsIgnoreCase("doctor")) {
+                logger.debug("isDoctor (toString match): true");
+                return true;
+            }
+            try {
+                boolean result = Integer.parseInt(s) == 2;
+                logger.debug("isDoctor (toString numeric): {}", result);
+                return result;
+            } catch (NumberFormatException ignore) {
+                logger.debug("isDoctor (toString): not a doctor");
+                return false;
+            }
+        } catch (Exception e) {
+            logger.error("isDoctor check exception: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Null-safe check if the user is a client (userType == 1)
+     */
+    private boolean isClient(UsersEntity user) {
+        if (user == null) return false;
+        Object userType = user.getUserType();
+        if (userType == null) return false;
+
+        if (userType instanceof Integer) {
+            return ((Integer) userType).intValue() == 1;
+        }
+        if (userType instanceof Long) {
+            return ((Long) userType).longValue() == 1L;
+        }
+        if (userType instanceof String) {
+            String s = ((String) userType).trim();
+            if (s.equalsIgnoreCase("client") || s.equalsIgnoreCase("user")) return true;
+            try {
+                return Integer.parseInt(s) == 1;
+            } catch (NumberFormatException ignore) {
+                return false;
+            }
+        }
+        try {
+            String s = userType.toString();
+            if (s.equalsIgnoreCase("client") || s.equalsIgnoreCase("user")) return true;
+            try {
+                return Integer.parseInt(s) == 1;
+            } catch (NumberFormatException ignore) {
+                return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }
