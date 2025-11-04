@@ -240,4 +240,41 @@ public class AppointmentController {
                     .body(Map.of("error", ex.getMessage()));
         }
     }
+    
+    /**
+     * ✅ API: Get all appointments for logged-in user
+     * GET /api/appointments/my-appointments
+     */
+    @GetMapping("/my-appointments")
+    public ResponseEntity<?> getMyAppointments() {
+        try {
+            // 1) Get current logged-in user from token
+            Optional<UsersEntity> currentUserOpt = auditorAware.getCurrentAuditor();
+            if (currentUserOpt.isEmpty()) {
+                logger.info("Unauthenticated attempt to fetch appointments");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "User not authenticated"));
+            }
+            
+            UsersEntity currentUser = currentUserOpt.get();
+            Long userId = currentUser.getUid();
+            
+            // 2) Fetch appointments for this user
+            List<Appointment> appointments = appointmentService.getUserAppointments(userId);
+            
+            // 3) Return all appointments
+            return ResponseEntity.ok(Map.of(
+                    "userId", userId,
+                    "totalAppointments", appointments.size(),
+                    "appointments", appointments
+            ));
+            
+        } catch (RuntimeException ex) {
+            logger.warn("getMyAppointments error: {}", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+    
+    
 }
