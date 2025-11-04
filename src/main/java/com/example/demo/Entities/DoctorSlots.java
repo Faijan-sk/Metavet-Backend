@@ -1,100 +1,91 @@
 package com.example.demo.Entities;
 
-import com.example.demo.Enum.SlotStatus;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "doctor_slot")
+@Table(name = "doctor_slots")
 public class DoctorSlots {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
+    
+    @Column(name = "doctor_id", nullable = false)
+    private Long doctorId;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_day_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "slots", "doctor"})
     private DoctorDays doctorDay;
-
-    @Column(name = "slot_start_time", nullable = false)
-    private LocalTime slotStartTime;
-
-    @Column(name = "slot_end_time", nullable = false)
-    private LocalTime slotEndTime;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
-    private SlotStatus status = SlotStatus.AVAILABLE;
-
-    // Custom getter for JSON response
+    
+    @Column(name = "start_time", nullable = false)
+    private LocalTime startTime;
+    
+    @Column(name = "end_time", nullable = false)
+    private LocalTime endTime;
+    
+    // Custom getters for JSON response
+    @JsonProperty("slotId")
+    public Long getSlotIdForJson() {
+        return id;
+    }
+    
     @JsonProperty("doctorDayId")
     public Long getDoctorDayIdForJson() {
         return doctorDay != null ? doctorDay.getId() : null;
     }
-
-    @JsonProperty("doctorId")
-    public Long getDoctorIdForJson() {
-        return doctorDay != null && doctorDay.getDoctor() != null ? 
-               doctorDay.getDoctor().getDoctorId() : null;
-    }
-
-    @JsonProperty("dayOfWeek")
-    public String getDayOfWeekForJson() {
-        return doctorDay != null && doctorDay.getDayOfWeek() != null ? 
-               doctorDay.getDayOfWeek().name() : null;
-    }
-
+    
     // Constructors
-    public void DoctorSlots() {}
-
-    public DoctorSlots(DoctorDays doctorDay, LocalTime slotStartTime, LocalTime slotEndTime) {
+    public DoctorSlots() {}
+    
+    public DoctorSlots(DoctorDays doctorDay, LocalTime startTime, LocalTime endTime) {
         this.doctorDay = doctorDay;
-        this.slotStartTime = slotStartTime;
-        this.slotEndTime = slotEndTime;
-        this.status = SlotStatus.AVAILABLE;
+        this.doctorId = doctorDay.getDoctor().getDoctorId();
+        this.startTime = startTime;
+        this.endTime = endTime;
     }
-
+    
     // Getters and Setters
     public Long getId() {
         return id;
     }
-
+    
     public void setId(Long id) {
         this.id = id;
     }
-
+    
     public DoctorDays getDoctorDay() {
         return doctorDay;
     }
-
+    
     public void setDoctorDay(DoctorDays doctorDay) {
         this.doctorDay = doctorDay;
     }
-
-    public LocalTime getSlotStartTime() {
-        return slotStartTime;
+    
+    public LocalTime getStartTime() {
+        return startTime;
     }
-
-    public void setSlotStartTime(LocalTime slotStartTime) {
-        this.slotStartTime = slotStartTime;
+    
+    public void setStartTime(LocalTime startTime) {
+        this.startTime = startTime;
     }
-
-    public LocalTime getSlotEndTime() {
-        return slotEndTime;
+    
+    public LocalTime getEndTime() {
+        return endTime;
     }
-
-    public void setSlotEndTime(LocalTime slotEndTime) {
-        this.slotEndTime = slotEndTime;
+    
+    public void setEndTime(LocalTime endTime) {
+        this.endTime = endTime;
     }
-
-    public SlotStatus getStatus() {
-        return status;
+    
+    public Long getDoctorId() {
+        return doctorId;
     }
-
-    public void setStatus(SlotStatus status) {
-        this.status = status;
+    
+    public void setDoctorId(Long doctorId) {
+        this.doctorId = doctorId;
     }
 }

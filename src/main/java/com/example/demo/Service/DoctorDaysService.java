@@ -3,6 +3,9 @@ package com.example.demo.Service;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +19,6 @@ import com.example.demo.Repository.DoctorDaysRepo;
 import com.example.demo.Repository.DoctorRepo;
 import com.example.demo.Repository.DoctorSlotRepo;
 
-
 @Service
 public class DoctorDaysService {
 
@@ -27,47 +29,43 @@ public class DoctorDaysService {
     private DoctorRepo doctorRepository;
 
     @Autowired
-    private DoctorSlotRepo DoctorSlotsRepository;
-    
+    private DoctorSlotRepo doctorSlotsRepository;
 
-    // Method to create days with time slots for a doctor
     @Transactional
     public List<DoctorDays> createDaysForDoctor(long doctorId, List<DoctorDayRequest> dayRequests) {
         DoctorsEntity doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new RuntimeException("Doctor not found with id: " + doctorId));
 
-        List<DoctorDays> existing = doctorDaysRepository.findByDoctor_DoctorId(doctorId);
+        if (dayRequests == null || dayRequests.isEmpty()) {
+            throw new RuntimeException("Day requests cannot be empty");
+        }
+
+        List<DoctorDays> existingDays = doctorDaysRepository.findByDoctor_DoctorId(doctorId);
         List<DoctorDays> createdDays = new ArrayList<>();
 
         for (DoctorDayRequest request : dayRequests) {
-            // Check if day already exists
-            boolean exists = existing.stream()
-                    .anyMatch(r -> r.getDayOfWeek() == request.getDayOfWeek());
-            
-            if (exists) {
-                throw new RuntimeException("Day already assigned to doctor: " + request.getDayOfWeek());
+            validateDayRequest(request);
+
+            boolean dayExists = existingDays.stream()
+                    .anyMatch(day -> day.getDayOfWeek() == request.getDayOfWeek());
+
+            if (dayExists) {
+                throw new RuntimeException("Day " + request.getDayOfWeek() + " is already assigned to doctor with id: " + doctorId);
             }
 
-            // Validate time
-            if (request.getEndTime().isBefore(request.getStartTime()) || 
-                request.getEndTime().equals(request.getStartTime())) {
-                throw new RuntimeException("End time must be after start time for day: " + request.getDayOfWeek());
-            }
+            validateTimeRange(request.getStartTime(), request.getEndTime(), request.getDayOfWeek());
 
-            // Create DoctorDay
             DoctorDays doctorDay = new DoctorDays(
-                request.getDayOfWeek(), 
-                doctor, 
-                request.getStartTime(),
-                request.getEndTime(), 
-                request.getSlotDurationMinutes()
-            );
-            
+                    request.getDayOfWeek(),
+                    doctor,
+                    request.getStartTime(),
+                    request.getEndTime(),
+                    request.getSlotDurationMinutes());
+
             DoctorDays savedDay = doctorDaysRepository.save(doctorDay);
 
-            // Create time slots
             List<DoctorSlots> slots = createTimeSlots(savedDay);
-            DoctorSlotsRepository.saveAll(slots);
+            doctorSlotsRepository.saveAll(slots);
 
             createdDays.add(savedDay);
         }
@@ -75,18 +73,16 @@ public class DoctorDaysService {
         return createdDays;
     }
 
-    // Helper method to create time slots
     private List<DoctorSlots> createTimeSlots(DoctorDays doctorDay) {
         List<DoctorSlots> slots = new ArrayList<>();
-        
+
         LocalTime currentTime = doctorDay.getStartTime();
         LocalTime endTime = doctorDay.getEndTime();
-        int duration = doctorDay.getSlotDurationMinutes();
+        int durationMinutes = doctorDay.getSlotDurationMinutes();
 
         while (currentTime.isBefore(endTime)) {
-            LocalTime slotEnd = currentTime.plusMinutes(duration);
-            
-            // Make sure slot doesn't exceed end time
+            LocalTime slotEnd = currentTime.plusMinutes(durationMinutes);
+
             if (slotEnd.isAfter(endTime)) {
                 break;
             }
@@ -101,20 +97,113 @@ public class DoctorDaysService {
     }
 
     public List<DoctorDays> getDoctorDaysFromDoctor(long doctorId) {
+        if (!doctorRepository.existsById(doctorId)) {
+            throw new RuntimeException("Doctor not found with id: " + doctorId);
+        }
         return doctorDaysRepository.findByDoctor_DoctorId(doctorId);
     }
 
+    /**
+     * ✅ NEW METHOD: Get DoctorDays objects for a specific day
+     * Returns DoctorDays with doctorDayId, doctorId, and all time fields
+     */
+    public List<DoctorDays> getDoctorDaysByDay(DayOfWeek day) {
+        if (day == null) {
+            throw new RuntimeException("Day cannot be null");
+        }
+        return doctorDaysRepository.findByDayOfWeek(day);
+    }
+
     public List<DoctorsEntity> getDoctorsByDay(DayOfWeek day) {
+        if (day == null) {
+            throw new RuntimeException("Day cannot be null");
+        }
         return doctorDaysRepository.findDoctorsByDay(day);
     }
 
-    // Get all slots for a doctor
-    public List<DoctorSlots> getDoctorSlotss(long doctorId) {
-        return DoctorSlotsRepository.findByDoctorId(doctorId);
+    public List<DoctorsEntity> getDoctorsByDayAndSpecialization(DayOfWeek day, String specialization) {
+        if (day == null) {
+            throw new RuntimeException("Day cannot be null");
+        }
+        if (specialization == null || specialization.trim().isEmpty()) {
+            throw new RuntimeException("Specialization cannot be empty");
+        }
+
+        List<DoctorsEntity> doctors = doctorDaysRepository.findDoctorsByDay(day);
+        return doctors.stream()
+                .filter(doctor -> doctor.getSpecialization() != null && 
+                        doctor.getSpecialization().equalsIgnoreCase(specialization.trim()))
+                .collect(Collectors.toList());
     }
 
-    // Get slots for a specific doctor day
+    public List<String> getSpecializationsByDay(DayOfWeek day) {
+        if (day == null) {
+            throw new RuntimeException("Day cannot be null");
+        }
+
+        List<DoctorsEntity> doctors = doctorDaysRepository.findDoctorsByDay(day);
+        return doctors.stream()
+                .map(DoctorsEntity::getSpecialization)
+                .filter(spec -> spec != null && !spec.trim().isEmpty())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    public List<DoctorSlots> getDoctorSlots(long doctorId) {
+        if (!doctorRepository.existsById(doctorId)) {
+            throw new RuntimeException("Doctor not found with id: " + doctorId);
+        }
+        return doctorSlotsRepository.findByDoctorId(doctorId);
+    }
+
     public List<DoctorSlots> getSlotsForDoctorDay(long doctorDayId) {
-        return DoctorSlotsRepository.findByDoctorDay_Id(doctorDayId);
+        if (!doctorDaysRepository.existsById(doctorDayId)) {
+            throw new RuntimeException("Doctor day not found with id: " + doctorDayId);
+        }
+        return doctorSlotsRepository.findByDoctorDay_Id(doctorDayId);
+    }
+
+    public Map<String, Long> getDoctorDayIdByDoctorAndDay(long doctorId, DayOfWeek day) {
+        if (day == null) {
+            throw new RuntimeException("Day cannot be null");
+        }
+        if (!doctorRepository.existsById(doctorId)) {
+            throw new RuntimeException("Doctor not found with id: " + doctorId);
+        }
+
+        DoctorDays doctorDay = doctorDaysRepository
+                .findFirstByDoctor_DoctorIdAndDayOfWeek(doctorId, day)
+                .orElseThrow(() -> new RuntimeException(
+                    "No schedule found for doctor ID: " + doctorId + " on " + day));
+        
+        return Map.of("doctorDayId", doctorDay.getId());
+    }
+
+    private void validateDayRequest(DoctorDayRequest request) {
+        if (request == null) {
+            throw new RuntimeException("Day request cannot be null");
+        }
+        if (request.getDayOfWeek() == null) {
+            throw new RuntimeException("Day of week cannot be null");
+        }
+        if (request.getStartTime() == null) {
+            throw new RuntimeException("Start time cannot be null");
+        }
+        if (request.getEndTime() == null) {
+            throw new RuntimeException("End time cannot be null");
+        }
+        if (request.getSlotDurationMinutes() == null || request.getSlotDurationMinutes() <= 0) {
+            throw new RuntimeException("Slot duration must be greater than 0");
+        }
+    }
+
+    private void validateTimeRange(LocalTime startTime, LocalTime endTime, DayOfWeek day) {
+        if (endTime.isBefore(startTime)) {
+            throw new RuntimeException("End time must be after start time for day: " + day);
+        }
+        if (endTime.equals(startTime)) {
+            throw new RuntimeException("End time cannot be equal to start time for day: " + day);
+        }
     }
 }

@@ -1,7 +1,10 @@
 package com.example.demo.Controller;
 
 import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,47 +28,129 @@ public class DoctorDaysController {
     @Autowired
     private DoctorDaysService doctorDaysService;
 
-    // API 1: Create days with time slots for a doctor
     @PostMapping("/doctor/{doctorId}")
-    public ResponseEntity<List<DoctorDays>> addDoctorDays(
+    public ResponseEntity<?> addDoctorDays(
             @PathVariable long doctorId,
             @RequestBody List<DoctorDayRequest> dayRequests) {
-        List<DoctorDays> createdDays = doctorDaysService.createDaysForDoctor(doctorId, dayRequests);
-        return ResponseEntity.ok(createdDays);
+        try {
+            List<DoctorDays> createdDays = doctorDaysService.createDaysForDoctor(doctorId, dayRequests);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdDays);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
     }
 
-    // API 2: Get available days for a specific doctor
     @GetMapping("/doctor/{doctorId}")
-    public ResponseEntity<List<DoctorDays>> getDoctorDays(@PathVariable long doctorId) {
-        List<DoctorDays> days = doctorDaysService.getDoctorDaysFromDoctor(doctorId);
-        return ResponseEntity.ok(days);
+    public ResponseEntity<?> getDoctorDays(@PathVariable long doctorId) {
+        try {
+            List<DoctorDays> days = doctorDaysService.getDoctorDaysFromDoctor(doctorId);
+            return ResponseEntity.ok(days);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", ex.getMessage()));
+        }
     }
 
-    // API 3: Get all doctors available on a specific day
+    /**
+     * ✅ NEW API: Get DoctorDays objects (with doctorDayId) for a specific day
+     * GET /api/doctor-days/day/{day}/details
+     * Example: /api/doctor-days/day/TUESDAY/details
+     */
+    @GetMapping("/day/{day}/details")
+    public ResponseEntity<?> getDoctorDaysByDay(@PathVariable DayOfWeek day) {
+        try {
+            List<DoctorDays> doctorDays = doctorDaysService.getDoctorDaysByDay(day);
+            return ResponseEntity.ok(doctorDays);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    /**
+     * API 3: Get all doctors available on a specific day (returns DoctorsEntity only)
+     * GET /api/doctor-days/day/{day}
+     * Example: /api/doctor-days/day/MONDAY
+     */
     @GetMapping("/day/{day}")
-    public ResponseEntity<List<DoctorsEntity>> getDoctorsByDay(@PathVariable DayOfWeek day) {
-        List<DoctorsEntity> doctors = doctorDaysService.getDoctorsByDay(day);
-        return ResponseEntity.ok(doctors);
+    public ResponseEntity<?> getDoctorsByDay(@PathVariable DayOfWeek day) {
+        try {
+            List<DoctorsEntity> doctors = doctorDaysService.getDoctorsByDay(day);
+            return ResponseEntity.ok(doctors);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
     }
 
-    // API 4: Get all slots for a doctor
+    @GetMapping("/day/{day}/specializations")
+    public ResponseEntity<?> getSpecializationsByDay(@PathVariable DayOfWeek day) {
+        try {
+            List<String> specializations = doctorDaysService.getSpecializationsByDay(day);
+            return ResponseEntity.ok(specializations);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+
+    @GetMapping("/filter")
+    public ResponseEntity<?> getDoctorsByDayAndSpecialization(
+            @RequestParam DayOfWeek day,
+            @RequestParam String specialization) {
+        try {
+            List<DoctorsEntity> doctors = doctorDaysService.getDoctorsByDayAndSpecialization(day, specialization);
+            return ResponseEntity.ok(doctors);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+
     @GetMapping("/doctor/{doctorId}/slots")
-    public ResponseEntity<List<DoctorSlots>> getDoctorSlotss(@PathVariable long doctorId) {
-        List<DoctorSlots> slots = doctorDaysService.getDoctorSlotss(doctorId);
-        return ResponseEntity.ok(slots);
+    public ResponseEntity<?> getDoctorSlots(@PathVariable long doctorId) {
+        try {
+            List<DoctorSlots> slots = doctorDaysService.getDoctorSlots(doctorId);
+            return ResponseEntity.ok(slots);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", ex.getMessage()));
+        }
     }
 
-    // API 5: Get slots for a specific doctor day
     @GetMapping("/doctor-day/{doctorDayId}/slots")
-    public ResponseEntity<List<DoctorSlots>> getSlotsForDoctorDay(@PathVariable long doctorDayId) {
-        List<DoctorSlots> slots = doctorDaysService.getSlotsForDoctorDay(doctorDayId);
-        return ResponseEntity.ok(slots);
+    public ResponseEntity<?> getSlotsForDoctorDay(@PathVariable long doctorDayId) {
+        try {
+            List<DoctorSlots> slots = doctorDaysService.getSlotsForDoctorDay(doctorDayId);
+            return ResponseEntity.ok(slots);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", ex.getMessage()));
+        }
     }
 
-    // API 6: Alternative - Get doctors by day using query parameter
     @GetMapping("/find-doctors")
-    public ResponseEntity<List<DoctorsEntity>> findDoctorsByDay(@RequestParam DayOfWeek day) {
-        List<DoctorsEntity> doctors = doctorDaysService.getDoctorsByDay(day);
-        return ResponseEntity.ok(doctors);
+    public ResponseEntity<?> findDoctorsByDay(@RequestParam DayOfWeek day) {
+        try {
+            List<DoctorsEntity> doctors = doctorDaysService.getDoctorsByDay(day);
+            return ResponseEntity.ok(doctors);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", ex.getMessage()));
+        }
+    }
+    
+    @GetMapping("/getDayId/{doctorId}/{day}")
+    public ResponseEntity<?> getDayIdByDoctorAndDay(
+            @PathVariable("doctorId") long doctorId,
+            @PathVariable("day") DayOfWeek day) {
+        try {
+            Map<String, Long> result = doctorDaysService.getDoctorDayIdByDoctorAndDay(doctorId, day);
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", ex.getMessage()));
+        }
     }
 }
