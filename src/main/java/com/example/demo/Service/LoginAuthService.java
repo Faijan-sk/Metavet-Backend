@@ -1,12 +1,9 @@
 package com.example.demo.Service;
 
-
 import java.util.Base64;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-
-import javax.crypto.SecretKey;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,10 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.example.demo.Entities.UsersEntity;
 import com.example.demo.Repository.UserRepo;
-
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
 
 @Service
 public class LoginAuthService {
@@ -28,49 +21,66 @@ public class LoginAuthService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-        /**
+    /**
      * Finds user by phone number, generates OTP & token, updates user record,
-     * and returns response map
+     * and returns response map.
      */
-    public Map<String, Object> checkUser(String phone_number) {
+    public Map<String, Object> checkUser(String phoneNumber) {
+        try {
+            // Basic validation
+            if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("status", "failed");
+                response.put("message", "Phone number is required");
+                return response;
+            }
 
-        // 1. Find user by phone number
-        UsersEntity user = userRepository.findByPhoneNumber(phone_number);
+            // 1. Find user by phone number
+            Optional<UsersEntity> optionalUser = userRepository.findByPhoneNumber(phoneNumber);
 
-        if (user == null) {
-            return null; // Controller will handle 404
+            if (optionalUser.isEmpty()) {
+                return null; // Controller will handle user not found
+            }
+
+            UsersEntity user = optionalUser.get();
+            String countryCode = user.getCountryCode();
+
+            // 2. Generate raw OTP
+            String rawOtp = generateOtp();
+
+            // 3. Encode OTP before saving
+            String encodedOtp = passwordEncoder.encode(rawOtp);
+
+            // 4. Update user with new OTP and save
+            user.setOtp(encodedOtp);
+            userRepository.save(user);
+
+            // 5. Generate temporary Base64 token (for OTP verification)
+            String token = generateToken(phoneNumber);
+
+            // 6. Prepare success response
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "OTP generated successfully");
+            response.put("phone_number", phoneNumber);
+            response.put("countryCode", countryCode);
+            response.put("otp", rawOtp); // Only for testing - remove in production
+            response.put("token", token);
+            response.put("userType", user.getUserType());
+            response.put("userTypeName", user.getUserTypeAsString());
+            response.put("uid", user.getUid());
+            response.put("id", user.getId());
+
+            return response;
+
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("status", "failed");
+            errorResponse.put("message", "Error while generating OTP");
+            errorResponse.put("error", e.getMessage());
+            return errorResponse;
         }
-
-        //returning country code too 
-        String countryCode = user.getCountryCode();
-        
-        // 2. Generate raw OTP
-        String rawOtp = generateOtp();
-
-        // 3. Encode OTP before saving
-        String encodedOtp = passwordEncoder.encode(rawOtp);
-
-        // 4. Update user with new OTP and save
-        user.setOtp(encodedOtp);
-        userRepository.save(user);
-
-        // 5. Generate temporary Base64 token (for OTP verification)
-        String token = generateToken(phone_number);
-
-        
-        // 6. Prepare response
-        Map<String, Object> response = new HashMap<>();
-        
-        response.put("status", "success");
-        response.put("phone_number", phone_number);
-        response.put("otp", rawOtp); // Only for testing
-        response.put("token", token);
-        response.put("countryCode", countryCode);
-
-        return response;
     }
-
-  
 
     /**
      * Generate 4-digit OTP
@@ -87,6 +97,4 @@ public class LoginAuthService {
         String rawData = phoneNumber + ":" + System.currentTimeMillis();
         return Base64.getEncoder().encodeToString(rawData.getBytes());
     }
-
-  
 }

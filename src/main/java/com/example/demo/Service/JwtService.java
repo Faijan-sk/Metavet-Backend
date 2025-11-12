@@ -15,6 +15,7 @@ import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Service
@@ -49,7 +50,8 @@ public class JwtService {
     // Generates a new access token for a User entity
     public String generateToken(UsersEntity user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", user.getUid());
+        claims.put("userId", user.getUid().toString());  // ✅ Store UUID as String
+        claims.put("userDbId", user.getId());             // ✅ Store numeric ID separately
         claims.put("userType", "USER");
         claims.put("phoneNumber", user.getPhoneNumber());
         claims.put("firstName", user.getFirstName());
@@ -67,7 +69,7 @@ public class JwtService {
     // Generates a new access token for an Admin entity
     public String generateToken(AdminsEntity admin) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", admin.getId());
+        claims.put("userId", admin.getId());  // Admin uses numeric ID
         claims.put("userType", "ADMIN");
         claims.put("role", admin.getRole());
         claims.put("roleName", admin.getRoleName());
@@ -85,7 +87,8 @@ public class JwtService {
     // Generates a new refresh token for a User entity
     public String generateRefreshToken(UsersEntity user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("userId", user.getUid());
+        claims.put("userId", user.getUid().toString());  // ✅ Store UUID as String
+        claims.put("userDbId", user.getId());             // ✅ Store numeric ID separately
         claims.put("userType", "USER");
 
         return Jwts.builder()
@@ -139,9 +142,69 @@ public class JwtService {
         return extractClaim(token, claims -> claims.get("userType", String.class), isAccessToken);
     }
 
-    // Extracts user ID from token
-    public Long extractUserId(String token, boolean isAccessToken) {
-        return extractClaim(token, claims -> claims.get("userId", Long.class), isAccessToken);
+    // ✅ Extracts user ID as String (handles both UUID strings and Long)
+    public String extractUserId(String token, boolean isAccessToken) {
+        return extractClaim(token, claims -> {
+            Object userId = claims.get("userId");
+            if (userId == null) {
+                return null;
+            }
+            return userId.toString();
+        }, isAccessToken);
+    }
+
+    // ✅ NEW: Extracts user ID as UUID (for User entities)
+    public UUID extractUserIdAsUUID(String token, boolean isAccessToken) {
+        String userId = extractUserId(token, isAccessToken);
+        if (userId == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException e) {
+            // If it's not a valid UUID, return null
+            return null;
+        }
+    }
+
+    // ✅ NEW: Extracts numeric DB ID (for both User and Admin)
+    public Long extractUserDbId(String token, boolean isAccessToken) {
+        return extractClaim(token, claims -> {
+            // Try to get userDbId first (for users)
+            Object dbId = claims.get("userDbId");
+            if (dbId != null) {
+                if (dbId instanceof Long) {
+                    return (Long) dbId;
+                } else if (dbId instanceof Integer) {
+                    return ((Integer) dbId).longValue();
+                } else if (dbId instanceof String) {
+                    try {
+                        return Long.parseLong((String) dbId);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                }
+            }
+            
+            // Fallback to userId for admins (which is numeric)
+            Object userId = claims.get("userId");
+            if (userId != null) {
+                if (userId instanceof Long) {
+                    return (Long) userId;
+                } else if (userId instanceof Integer) {
+                    return ((Integer) userId).longValue();
+                } else if (userId instanceof String) {
+                    try {
+                        return Long.parseLong((String) userId);
+                    } catch (NumberFormatException e) {
+                        // It's a UUID string, not a Long
+                        return null;
+                    }
+                }
+            }
+            
+            return null;
+        }, isAccessToken);
     }
 
     // Checks if a token is valid
@@ -158,7 +221,7 @@ public class JwtService {
         return isTokenValid(token, true);
     }
 
-    //missing method 
+    // missing method 
     public boolean isRefreshTokenValid(String token) {
         return isTokenValid(token, false);
     }

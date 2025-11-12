@@ -2,7 +2,7 @@ package com.example.demo.Dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-
+import java.util.UUID;
 
 import com.example.demo.Enum.DoctorProfileStatus;
 
@@ -11,7 +11,7 @@ public class DoctorDtoForAdmin {
     /*
      * doctor Info from UsersEntity
      */
-    private Long doctorUid;
+    private UUID doctorUid;
     private String email;
     private String phoneNumber;
     private String firstName;
@@ -45,11 +45,11 @@ public class DoctorDtoForAdmin {
     private Integer totalAppointments;
     private Double totalEarnings;
     
-    // ✅ Default constructor
+    // Default constructor
     public DoctorDtoForAdmin() {}
 
-    // ✅ All-args constructor
-    public DoctorDtoForAdmin(Long doctorUid, String email, String phoneNumber, String firstName, String lastName,
+    // All-args constructor
+    public DoctorDtoForAdmin(UUID doctorUid, String email, String phoneNumber, String firstName, String lastName,
                             LocalDateTime createdAt, Long doctorId, Integer experienceYears,
                             String hospitalClinicAddress, String city, String state, String bio,
                             Double consultationFee, String licenseNumber, String qualification,
@@ -87,12 +87,12 @@ public class DoctorDtoForAdmin {
         this.totalEarnings = totalEarnings;
     }
 
-    // ✅ Getters & Setters
-    public Long getDoctorUid() {
+    // Getters & Setters
+    public UUID getDoctorUid() {
         return doctorUid;
     }
 
-    public void setDoctorUid(Long doctorUid) {
+    public void setDoctorUid(UUID doctorUid) {
         this.doctorUid = doctorUid;
     }
 
@@ -264,8 +264,6 @@ public class DoctorDtoForAdmin {
         this.isAvailable = isAvailable;
     }
 
-  
-
     public DoctorProfileStatus getDoctorProfileStatus() {
 		return doctorProfileStatus;
 	}
@@ -274,7 +272,6 @@ public class DoctorDtoForAdmin {
 		this.doctorProfileStatus = doctorProfileStatus;
 	}
 
-	// Admin-specific getters and setters
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }

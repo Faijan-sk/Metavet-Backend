@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -99,7 +100,14 @@ public class AppointmentController {
                         .body(Map.of("error", "User not authenticated"));
             }
             UsersEntity currentUser = currentUserOpt.get();
-            Long userId = currentUser.getUid(); // use uid as userId
+
+            // Use DB primary key (Long) for appointment.userId
+            Long userId = currentUser.getId();
+            if (userId == null) {
+                logger.warn("Authenticated user has null database id (getId()). Cannot book.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Authenticated user has invalid id"));
+            }
 
             // Optional: ensure this user is client (userType == 1)
             if (!isClient(currentUser)) {
@@ -122,7 +130,7 @@ public class AppointmentController {
             Long slotId = Long.parseLong(request.get("slotId").toString());
             LocalDate appointmentDate = LocalDate.parse(request.get("appointmentDate").toString());
 
-            // 3) Call service with extracted userId
+            // 3) Call service with extracted userId (DB Long id)
             Appointment appointment = appointmentService.bookAppointment(
                     userId, petId, doctorId, doctorDayId, slotId, appointmentDate
             );
@@ -221,7 +229,15 @@ public class AppointmentController {
             }
             
             UsersEntity currentUser = currentUserOpt.get();
-            Long userUid = currentUser.getUid();
+
+            // Use UID (UUID) for doctor lookup
+            UUID userUid = currentUser.getUid();
+            if (userUid == null) {
+                logger.warn("Authenticated user has null UID; cannot resolve doctor profile");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Authenticated user UID is invalid"));
+            }
+
             logger.debug("Fetching appointments for user uid: {}", userUid);
             
             // 2) Convert user uid to doctor id using DoctorService
@@ -352,7 +368,14 @@ public class AppointmentController {
             }
 
             UsersEntity currentUser = currentUserOpt.get();
-            Long userId = currentUser.getUid();
+
+            // Use DB primary key (Long) to fetch user's appointments
+            Long userId = currentUser.getId();
+            if (userId == null) {
+                logger.warn("Authenticated user has null database id (getId()). Cannot fetch appointments.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Authenticated user has invalid id"));
+            }
 
             // 2) Fetch appointments for this user
             List<Appointment> appointments = appointmentService.getUserAppointments(userId);
@@ -411,7 +434,12 @@ public class AppointmentController {
             }
 
             UsersEntity currentUser = currentUserOpt.get();
-            Long userId = currentUser.getUid();
+            Long userId = currentUser.getId();
+            if (userId == null) {
+                logger.warn("Authenticated user has null database id (getId()). Cannot delete appointment.");
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Authenticated user has invalid id"));
+            }
 
             // 2) Delete appointment with ownership verification
             appointmentService.deleteAppointmentByUser(appointmentId, userId);

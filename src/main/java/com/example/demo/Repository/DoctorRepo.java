@@ -10,6 +10,7 @@ import com.example.demo.Enum.Gender;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -44,11 +45,10 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
 
     List<DoctorsEntity> findByIsAvailableTrueAndIsActiveTrue();
 
-    // ---------- PROFILE STATUS QUERIES (fixed) ----------
+    // ---------- PROFILE STATUS QUERIES ----------
     List<DoctorsEntity> findByDoctorProfileStatus(DoctorProfileStatus status);
     long countByDoctorProfileStatus(DoctorProfileStatus status);
 
-    // Combined profile status queries
     List<DoctorsEntity> findByDoctorProfileStatusAndIsActiveTrue(DoctorProfileStatus status);
     List<DoctorsEntity> findByDoctorProfileStatusAndIsAvailableTrue(DoctorProfileStatus status);
 
@@ -135,11 +135,13 @@ public interface DoctorRepo extends JpaRepository<DoctorsEntity, Long> {
     List<DoctorsEntity> findTop5BySpecializationAndDoctorProfileStatusOrderByExperienceYearsDesc(
             String specialization, DoctorProfileStatus status
     );
-    
+
+    // reuse DoctorDays mapping: this query used earlier in DoctorDaysRepo, keep it for convenience
     @Query("SELECT DISTINCT d.doctor FROM DoctorDays d WHERE d.dayOfWeek = :day")
     List<DoctorsEntity> findDoctorsByDay(@Param("day") DayOfWeek day);
-    
-    @Query("SELECT d.doctorId FROM DoctorsEntity d WHERE d.user.uid = :uid")
-    Long findDoctorIdByUserUid(@Param("uid") Long uid);
 
+    // Now using id (PK) from DoctorsEntity (inherited from BaseEntity)
+    // This returns numeric id for doctor corresponding to user.uid (UUID).
+    @Query("SELECT d.id FROM DoctorsEntity d WHERE d.user.uid = :uid")
+    Long findDoctorIdByUserUid(@Param("uid") java.util.UUID uid);
 }

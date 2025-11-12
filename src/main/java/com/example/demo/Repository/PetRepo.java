@@ -1,6 +1,5 @@
 package com.example.demo.Repository;
 
-
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -8,24 +7,30 @@ import org.springframework.stereotype.Repository;
 import com.example.demo.Entities.DoctorsEntity;
 import com.example.demo.Entities.PetsEntity;
 import com.example.demo.Entities.UsersEntity;
-
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface PetRepo extends JpaRepository<PetsEntity, Long> {
+    
+    // Find by UUID (from BaseEntity)
+    Optional<PetsEntity> findByUid(UUID uid);
     
     // Find all pets by owner
     List<PetsEntity> findByOwner(UsersEntity owner);
     
     // Find all pets by owner ID
-    List<PetsEntity> findByOwner_Uid(Long ownerId);
+    List<PetsEntity> findByOwner_Id(Long ownerId);
+    
+    // Find all pets by owner UUID
+    List<PetsEntity> findByOwner_Uid(UUID ownerUid);
     
     // Find all pets by treating doctor
     List<PetsEntity> findByTreatingDoctor(DoctorsEntity doctor);
     
     // Find all pets by doctor ID
-    List<PetsEntity> findByTreatingDoctor_DoctorId(Long doctorId);
+    List<PetsEntity> findByTreatingDoctor_Id(Long doctorId);
     
     // Find pets by species
     List<PetsEntity> findByPetSpeciesIgnoreCase(String species);
@@ -42,8 +47,6 @@ public interface PetRepo extends JpaRepository<PetsEntity, Long> {
     // Find neutered pets
     List<PetsEntity> findByIsNeutered(Boolean isNeutered);
     
-   
-  
     // Find pets by species and breed
     List<PetsEntity> findByPetSpeciesIgnoreCaseAndPetBreedIgnoreCase(String species, String breed);
     
@@ -61,9 +64,8 @@ public interface PetRepo extends JpaRepository<PetsEntity, Long> {
     @Query("SELECT p FROM PetsEntity p WHERE p.treatingDoctor.specialization = :specialization")
     List<PetsEntity> findByDoctorSpecialization(@Param("specialization") String specialization);
     
-   
-    // Custom query to count pets by doctor
-    @Query("SELECT COUNT(p) FROM PetsEntity p WHERE p.treatingDoctor.doctorId = :doctorId")
+    // Custom query to count pets by doctor ID
+    @Query("SELECT COUNT(p) FROM PetsEntity p WHERE p.treatingDoctor.id = :doctorId")
     Long countPetsByDoctorId(@Param("doctorId") Long doctorId);
     
     // Custom query to find pets with health issues (not vaccinated or not neutered)
@@ -83,12 +85,22 @@ public interface PetRepo extends JpaRepository<PetsEntity, Long> {
                                        @Param("minAge") Integer minAge,
                                        @Param("maxAge") Integer maxAge);
     
-    // Check if pet name exists for a specific owner
-    boolean existsByPetNameAndOwner_Uid(String petName, Long ownerId);
+    // Check if pet name exists for a specific owner (using owner ID)
+    boolean existsByPetNameAndOwner_Id(String petName, Long ownerId);
     
-    // Find pet by ID and owner (for security - ensure owner can only access their pets)
-    Optional<PetsEntity> findByPidAndOwner_Uid(Long pid, Long ownerId);
+    // CHECKED / FIXED: Check if pet name exists for a specific owner (using owner UUID)
+    // NOTE: Spring Data derived query method must include BOTH properties used in the method name
+    boolean existsByPetNameAndOwner_Uid(String petName, UUID ownerUid);
     
-    // Find pet by ID and doctor (for doctors to access their assigned pets)
-    Optional<PetsEntity> findByPidAndTreatingDoctor_DoctorId(Long pid, Long doctorId);
+    // Find pet by ID and owner ID (for security - ensure owner can only access their pets)
+    Optional<PetsEntity> findByIdAndOwner_Id(Long id, Long ownerId);
+    
+    // Find pet by UUID and owner UUID
+    Optional<PetsEntity> findByUidAndOwner_Uid(UUID petUid, UUID ownerUid);
+    
+    // Find pet by ID and doctor ID (for doctors to access their assigned pets)
+    Optional<PetsEntity> findByIdAndTreatingDoctor_Id(Long id, Long doctorId);
+    
+    //delete pet by uid 
+    void deleteByUid(UUID uid);
 }

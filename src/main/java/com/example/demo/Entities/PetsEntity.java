@@ -1,15 +1,9 @@
 package com.example.demo.Entities;
 
-import java.time.LocalDateTime;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,20 +17,16 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "pets_entity")
-public class PetsEntity {
-	
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "pid")
-    private Long pid;
+public class PetsEntity extends BaseEntity {
        
     // Foreign key relationship with UsersEntity (Pet Owner)
     @ManyToOne
+    @JoinColumn(name = "owner_id", referencedColumnName = "id", nullable = false)
     private UsersEntity owner;
    
     // Foreign key relationship with DoctorsEntity (Treating Doctor) - Optional
     @ManyToOne
-    @JoinColumn(name = "doctor_id", referencedColumnName = "doctorId", nullable = true)
+    @JoinColumn(name = "doctor_id", referencedColumnName = "id", nullable = true)
     private DoctorsEntity treatingDoctor;
     
     
@@ -100,31 +90,10 @@ public class PetsEntity {
     @Column(name = "medical_notes", length = 500)
     private String medicalNotes;
     
-    @Column(name = "created_at") 
-    private LocalDateTime createdAt;
-    
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    // Automatically set timestamps
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-    
     // Helper methods
     public String getOwnerFullName() {
         return owner != null ? owner.getFirstName() + " " + owner.getLastName() : "Unknown Owner";
     }
-    
- 
     
     public String getPetInfo() {
         return petName + " (" + petSpecies + " - " + petBreed + ")";
@@ -138,14 +107,6 @@ public class PetsEntity {
     }
     
     // Getters and Setters
-    public Long getPid() {
-        return pid;
-    }
-    
-    public void setPid(Long pid) {
-        this.pid = pid;
-    }
-    
     public UsersEntity getOwner() {
         return owner;
     }
@@ -240,21 +201,5 @@ public class PetsEntity {
     
     public void setMedicalNotes(String medicalNotes) {
         this.medicalNotes = medicalNotes;
-    }
-    
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-    
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-    
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-    
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 }

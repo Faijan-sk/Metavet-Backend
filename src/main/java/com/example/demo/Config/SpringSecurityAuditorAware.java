@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import com.example.demo.Entities.UsersEntity;
@@ -14,7 +15,7 @@ import com.example.demo.Repository.UserRepo;
 
 @Component
 public class SpringSecurityAuditorAware implements AuditorAware<UsersEntity> {
-    
+
     private final UserRepo userRepository;
 
     @Autowired
@@ -33,49 +34,46 @@ public class SpringSecurityAuditorAware implements AuditorAware<UsersEntity> {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         // Check if user is authenticated
-        if (authentication == null || !authentication.isAuthenticated() 
-            || "anonymousUser".equals(authentication.getPrincipal())) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             System.out.println("❌ No authenticated user found");
             return Optional.empty();
         }
 
+        Object principal = authentication.getPrincipal();
+
         try {
-            Object principal = authentication.getPrincipal();
-            
-            // ✅ Handle CustomUserDetails from JWT Filter
-            if (principal instanceof CustomUserDetails) {
-                CustomUserDetails userDetails = (CustomUserDetails) principal;
-                String userType = userDetails.getUserType();
-                
-                // Only process USER type (not ADMIN)
-                if ("USER".equals(userType)) {
-                    String email = userDetails.getUsername();
-                    UsersEntity user = userRepository.findByEmail(email);
-                    
-                    if (user != null) {
-                        System.out.println("✅ Current Auditor: " + user.getFirstName() 
-                            + " " + user.getLastName() + " (ID: " + user.getUid() + ")");
-                        return Optional.of(user);
-                    } else {
-                        System.out.println("❌ User not found in database: " + email);
-                    }
-                }
-            } 
-            // ✅ Fallback: Handle if principal is String (username/email)
-            else if (principal instanceof String) {
-                String username = (String) principal;
-                UsersEntity user = userRepository.findByEmail(username);
-                
-                if (user != null) {
-                    System.out.println("✅ Current Auditor (fallback): " + user.getFirstName() 
-                        + " (ID: " + user.getUid() + ")");
-                    return Optional.of(user);
-                }
+            String email = null;
+
+            // If principal is UserDetails (including your CustomUserDetails), get username/email
+            if (principal instanceof UserDetails) {
+                email = ((UserDetails) principal).getUsername();
             }
-            
-            System.out.println("❌ Principal type not recognized: " + principal.getClass().getName());
-            return Optional.empty();
-            
+            // If principal is a plain string (sometimes frameworks set username as String)
+            else if (principal instanceof String) {
+                email = (String) principal;
+            } else {
+                System.out.println("❌ Principal type not recognized: " + principal.getClass().getName());
+                return Optional.empty();
+            }
+
+            if (email == null || email.trim().isEmpty()) {
+                System.out.println("❌ No username/email available in principal");
+                return Optional.empty();
+            }
+
+            // Use the repository's Optional-returning method
+            Optional<UsersEntity> userOpt = userRepository.findByEmail(email.trim());
+
+            if (userOpt.isPresent()) {
+                UsersEntity user = userOpt.get();
+                System.out.println("✅ Current Auditor: " + user.getFirstName() + " " + user.getLastName()
+                        + " (ID: " + user.getUid() + ")");
+                return Optional.of(user);
+            } else {
+                System.out.println("❌ User not found in database: " + email);
+                return Optional.empty();
+            }
+
         } catch (Exception e) {
             System.out.println("❌ Error getting current auditor: " + e.getMessage());
             e.printStackTrace();
@@ -83,17 +81,29 @@ public class SpringSecurityAuditorAware implements AuditorAware<UsersEntity> {
         }
     }
 
+    /**
+     * Walks the current stacktrace and checks whether any method in the call stack is annotated with
+     * {@link NoAuditing}. If so, auditing is skipped.
+     *
+     * This method is defensive: any reflection failures are ignored and treated as "no annotation found".
+     */
     private boolean isNoAuditingEnabled() {
         StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
         for (StackTraceElement element : stackTraceElements) {
             try {
                 Class<?> clazz = Class.forName(element.getClassName());
-                Method method = clazz.getMethod(element.getMethodName());
-                if (method.isAnnotationPresent(NoAuditing.class)) {
-                    return true;
+                // Try to find method with matching name (we don't know parameter types safely) - iterate declared methods
+                for (Method method : clazz.getDeclaredMethods()) {
+                    if (method.getName().equals(element.getMethodName())) {
+                        if (method.isAnnotationPresent(NoAuditing.class)) {
+                            return true;
+                        }
+                    }
                 }
-            } catch (ClassNotFoundException | NoSuchMethodException ignored) {
-                // Method not found, continue
+            } catch (ClassNotFoundException ex) {
+                // ignore and continue
+            } catch (Throwable t) {
+                // any other reflection error - ignore to avoid breaking auditing lookup
             }
         }
         return false;

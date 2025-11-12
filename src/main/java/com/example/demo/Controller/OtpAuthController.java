@@ -21,7 +21,7 @@ public class OtpAuthController {
     @Autowired
     private OtpAuthService otpServices;
 
-    // ✅ Fixed endpoint mapping - matches your URL pattern exactly
+    // ✅ Endpoint kept exactly as requested: /api/auth/otp/verify-otp/{token}
     @PostMapping("/verify-otp/{token}")
     public ResponseEntity<Map<String, Object>> verifyOtp(
             @PathVariable("token") String token,
@@ -77,6 +77,7 @@ public class OtpAuthController {
                 response.put("message", verificationResult.get("message"));
                 
                 System.out.println("❌ OTP verification failed: " + verificationResult.get("message"));
+                // Use 400 for invalid OTP/token, 404 or other codes could be used based on message.
                 return ResponseEntity.badRequest().body(response);
             }
             

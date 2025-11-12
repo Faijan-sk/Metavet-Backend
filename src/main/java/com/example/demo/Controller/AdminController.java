@@ -156,27 +156,27 @@ public class AdminController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
             
-            // Extract admin info from refresh token
-            String email = jwtService.extractUsername(refreshToken, false);
-            Long adminId = jwtService.extractUserId(refreshToken, false);
+//            // Extract admin info from refresh token
+//            String email = jwtService.extractUsername(refreshToken, false);
+//            Long adminId = jwtService.extractUserId(refreshToken, false);
+//            
+//            // Get admin from database
+//            Optional<AdminsEntity> adminOpt = adminService.getAdminById(adminId);
+//            if (!adminOpt.isPresent()) {
+//                response.put("success", false);
+//                response.put("message", "Admin not found!");
+//                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+//            }
             
-            // Get admin from database
-            Optional<AdminsEntity> adminOpt = adminService.getAdminById(adminId);
-            if (!adminOpt.isPresent()) {
-                response.put("success", false);
-                response.put("message", "Admin not found!");
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-            }
-            
-            AdminsEntity admin = adminOpt.get();
-            
-            // Generate new access token
-            String newAccessToken = jwtService.generateToken(admin);
-            
-            response.put("success", true);
-            response.put("accessToken", newAccessToken);
-            response.put("message", "Token refreshed successfully!");
-            
+//            AdminsEntity admin = adminOpt.get();
+//            
+//            // Generate new access token
+//            String newAccessToken = jwtService.generateToken(admin);
+//            
+//            response.put("success", true);
+//            response.put("accessToken", newAccessToken);
+//            response.put("message", "Token refreshed successfully!");
+//            
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
@@ -208,24 +208,24 @@ public class AdminController {
             }
             
             // Extract admin info from token
-            String email = jwtService.extractUsername(token, true);
-            Long adminId = jwtService.extractUserId(token, true);
-            String userType = jwtService.extractUserType(token, true);
-            
-            if (!"ADMIN".equals(userType)) {
-                response.put("success", false);
-                response.put("message", "Token is not for admin user!");
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
-            }
-            
-            response.put("success", true);
-            response.put("message", "Token is valid!");
-            response.put("data", Map.of(
-                "userId", adminId,
-                "email", email,
-                "userType", userType
-            ));
-            
+//            String email = jwtService.extractUsername(token, true);
+//            Long adminId = jwtService.extractUserId(token, true);
+//            String userType = jwtService.extractUserType(token, true);
+//            
+//            if (!"ADMIN".equals(userType)) {
+//                response.put("success", false);
+//                response.put("message", "Token is not for admin user!");
+//                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+//            }
+//            
+//            response.put("success", true);
+//            response.put("message", "Token is valid!");
+//            response.put("data", Map.of(
+//                "userId", adminId,
+//                "email", email,
+//                "userType", userType
+//            ));
+//            
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {

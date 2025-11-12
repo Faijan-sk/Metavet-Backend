@@ -40,7 +40,8 @@ public class DoctorDaysService {
             throw new RuntimeException("Day requests cannot be empty");
         }
 
-        List<DoctorDays> existingDays = doctorDaysRepository.findByDoctor_DoctorId(doctorId);
+        // Updated repository method name: findByDoctor_Id
+        List<DoctorDays> existingDays = doctorDaysRepository.findByDoctor_Id(doctorId);
         List<DoctorDays> createdDays = new ArrayList<>();
 
         for (DoctorDayRequest request : dayRequests) {
@@ -100,13 +101,9 @@ public class DoctorDaysService {
         if (!doctorRepository.existsById(doctorId)) {
             throw new RuntimeException("Doctor not found with id: " + doctorId);
         }
-        return doctorDaysRepository.findByDoctor_DoctorId(doctorId);
+        return doctorDaysRepository.findByDoctor_Id(doctorId);
     }
 
-    /**
-     * ✅ NEW METHOD: Get DoctorDays objects for a specific day
-     * Returns DoctorDays with doctorDayId, doctorId, and all time fields
-     */
     public List<DoctorDays> getDoctorDaysByDay(DayOfWeek day) {
         if (day == null) {
             throw new RuntimeException("Day cannot be null");
@@ -131,7 +128,7 @@ public class DoctorDaysService {
 
         List<DoctorsEntity> doctors = doctorDaysRepository.findDoctorsByDay(day);
         return doctors.stream()
-                .filter(doctor -> doctor.getSpecialization() != null && 
+                .filter(doctor -> doctor.getSpecialization() != null &&
                         doctor.getSpecialization().equalsIgnoreCase(specialization.trim()))
                 .collect(Collectors.toList());
     }
@@ -173,10 +170,10 @@ public class DoctorDaysService {
         }
 
         DoctorDays doctorDay = doctorDaysRepository
-                .findFirstByDoctor_DoctorIdAndDayOfWeek(doctorId, day)
+                .findFirstByDoctor_IdAndDayOfWeek(doctorId, day)
                 .orElseThrow(() -> new RuntimeException(
-                    "No schedule found for doctor ID: " + doctorId + " on " + day));
-        
+                        "No schedule found for doctor ID: " + doctorId + " on " + day));
+
         return Map.of("doctorDayId", doctorDay.getId());
     }
 

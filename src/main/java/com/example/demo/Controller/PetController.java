@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/pets")
@@ -44,6 +45,63 @@ public class PetController {
             response.put("message", "Pet created successfully");
             response.put("data", createdPet);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+    
+    // Delete pet by UID (FIXED - parameter name matches path variable)
+    @DeleteMapping("/delete/{petUid}")
+    public ResponseEntity<Map<String, Object>> deletePetByUid(@PathVariable UUID petUid) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            boolean deleted = petService.deletePetByUid(petUid);
+            
+            if (deleted) {
+                response.put("status", "success");
+                response.put("message", "Pet deleted successfully");
+                return ResponseEntity.ok(response);
+            } else {
+                response.put("status", "error");
+                response.put("message", "Failed to delete pet");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+        } catch (Exception e) {
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    // Update pet by UID (FIXED - parameter name matches path variable)
+    @PutMapping("/update/{petUid}")
+    public ResponseEntity<Map<String, Object>> updatePetByUid(
+            @PathVariable UUID petUid, 
+            @Valid @RequestBody PetsEntity updatedPet, 
+            BindingResult result) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // Check for validation errors
+            if (result.hasErrors()) {
+                response.put("status", "error");
+                response.put("message", "Validation failed");
+                response.put("errors", result.getAllErrors());
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            PetsEntity pet = petService.updatePetByUid(petUid, updatedPet);
+            
+            response.put("status", "success");
+            response.put("message", "Pet updated successfully");
+            response.put("data", pet);
+            return ResponseEntity.ok(response);
             
         } catch (Exception e) {
             response.put("status", "error");
@@ -140,36 +198,6 @@ public class PetController {
         }
     }
     
-    // Update pet information
-    @PutMapping("/update/{petId}")
-    public ResponseEntity<Map<String, Object>> updatePet(@PathVariable Long petId, 
-                                                        @Valid @RequestBody PetsEntity updatedPet, 
-                                                        BindingResult result) {
-        Map<String, Object> response = new HashMap<>();
-        
-        try {
-            // Check for validation errors
-            if (result.hasErrors()) {
-                response.put("status", "error");
-                response.put("message", "Validation failed");
-                response.put("errors", result.getAllErrors());
-                return ResponseEntity.badRequest().body(response);
-            }
-            
-            PetsEntity pet = petService.updatePet(petId, updatedPet);
-            
-            response.put("status", "success");
-            response.put("message", "Pet updated successfully");
-            response.put("data", pet);
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            response.put("status", "error");
-            response.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
-        }
-    }
-    
     // Assign doctor to pet
     @PutMapping("/{petId}/assign-doctor/{doctorId}")
     public ResponseEntity<Map<String, Object>> assignDoctorToPet(@PathVariable Long petId, 
@@ -203,31 +231,6 @@ public class PetController {
             response.put("message", "Doctor removed successfully");
             response.put("data", pet);
             return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            response.put("status", "error");
-            response.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(response);
-        }
-    }
-    
-    // Delete pet
-    @DeleteMapping("/delete/{petId}")
-    public ResponseEntity<Map<String, Object>> deletePet(@PathVariable Long petId) {
-        Map<String, Object> response = new HashMap<>();
-        
-        try {
-            boolean deleted = petService.deletePet(petId);
-            
-            if (deleted) {
-                response.put("status", "success");
-                response.put("message", "Pet deleted successfully");
-                return ResponseEntity.ok(response);
-            } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete pet");
-                return ResponseEntity.badRequest().body(response);
-            }
             
         } catch (Exception e) {
             response.put("status", "error");
@@ -304,8 +307,6 @@ public class PetController {
         }
     }
     
-   
-    
     // Get vaccinated pets
     @GetMapping("/vaccinated")
     public ResponseEntity<Map<String, Object>> getVaccinatedPets() {
@@ -369,7 +370,6 @@ public class PetController {
         }
     }
     
-   
     // Count pets by doctor
     @GetMapping("/count/doctor/{doctorId}")
     public ResponseEntity<Map<String, Object>> countPetsByDoctor(@PathVariable Long doctorId) {
@@ -391,9 +391,6 @@ public class PetController {
         }
     }
     
-    
-    
-   
     // Get dashboard statistics
     @GetMapping("/dashboard/stats")
     public ResponseEntity<Map<String, Object>> getDashboardStats() {
@@ -415,8 +412,6 @@ public class PetController {
             // Pets without doctor
             List<PetsEntity> petsWithoutDoctor = petService.getPetsWithoutDoctor();
             stats.put("petsWithoutDoctor", petsWithoutDoctor.size());
-            
-            
             
             // Species distribution
             Map<String, Long> speciesCount = allPets.stream()

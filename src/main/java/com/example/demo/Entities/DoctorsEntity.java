@@ -4,14 +4,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.example.demo.Enum.AppointmentStatus;
 import com.example.demo.Enum.DoctorProfileStatus;
-import com.example.demo.Enum.EmploymentStatus;
 import com.example.demo.Enum.EmploymentType;
 import com.example.demo.Enum.Gender;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -19,9 +16,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
@@ -35,20 +29,24 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+/**
+ * DoctorsEntity - Now extends BaseEntity
+ *
+ * Notes:
+ * - Inherits id, uid, createdAt, updatedAt from BaseEntity
+ * - Removed duplicate doctorId (now uses id from BaseEntity)
+ * - Removed duplicate createdAt/updatedAt (now inherited)
+ */
 @Entity
 @Table(name = "doctors_entity")
-public class DoctorsEntity {
+public class DoctorsEntity extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long doctorId;
-
-    // Foreign key relationship with UsersEntity
+    // Foreign key relationship with UsersEntity.
+    // referencedColumnName = "uid" assumes UsersEntity has a column/field named 'uid'.
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "uid", nullable = false, unique = true)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private UsersEntity user;
-
 
     @NotNull(message = "Experience is required")
     @Min(value = 0, message = "Experience cannot be negative")
@@ -56,16 +54,12 @@ public class DoctorsEntity {
     @Column(name = "experience_years", nullable = false)
     private Integer experienceYears;
 
-  
-
-
     @Size(min = 3, max = 150, message = "Hospital/Clinic name must be between 3 and 150 characters")
     @Column(name = "hospital_clinic_name", length = 150)
     private String hospitalClinicName;
 
-    
     @Size(min = 10, max = 300, message = "Address must be between 10 and 300 characters")
-    @Column(name = "hospital_clinic_address",  length = 300)
+    @Column(name = "hospital_clinic_address", length = 300)
     private String hospitalClinicAddress;
 
     @Pattern(regexp = "^[0-9]{6}$", message = "Pincode must be exactly 6 digits")
@@ -98,21 +92,13 @@ public class DoctorsEntity {
     @Max(value = 50000, message = "Consultation fee cannot exceed 50000")
     @Column(name = "consultation_fee", nullable = false)
     private Double consultationFee;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(name = "profile_status", nullable = false)
-    private DoctorProfileStatus doctorProfileStatus ;
-    
+    private DoctorProfileStatus doctorProfileStatus;
 
     @Column(name = "is_available", nullable = false, columnDefinition = "BOOLEAN DEFAULT true")
     private Boolean isAvailable = true;
-
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -143,8 +129,6 @@ public class DoctorsEntity {
     @Column(name = "specialization", nullable = false, length = 100)
     private String specialization;
 
-  
-
     @Column(length = 100)
     private String previousWorkplace;
 
@@ -161,42 +145,33 @@ public class DoctorsEntity {
 
     // System Information
     @Column(nullable = false)
-    private Boolean isActive;
+    private Boolean isActive = true;
 
     @Column(length = 50)
     private String createdBy;
 
     @Column(length = 50)
     private String updatedBy;
- 
+
     @Column(length = 15)
     private String emergencyContactNumber;
-    
-    
+
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnore  // Yeh add karo taaki availableDays serialize na ho jab doctor return ho
+    @JsonIgnore
     private List<DoctorDays> availableDays;
 
-    
-    
-    public List<DoctorDays> getAvailableDays() {
-        return availableDays;
+    public DoctorsEntity() {
     }
 
-    public void setAvailableDays(List<DoctorDays> availableDays) {
-        this.availableDays = availableDays;
-    }
+    // Getters / Setters
 
-    
-    
-
-    // Getters and Setters
+    // Use getId() from BaseEntity instead of getDoctorId()
     public Long getDoctorId() {
-        return doctorId;
+        return getId();
     }
 
     public void setDoctorId(Long doctorId) {
-        this.doctorId = doctorId;
+        setId(doctorId);
     }
 
     public UsersEntity getUser() {
@@ -295,21 +270,26 @@ public class DoctorsEntity {
         this.isAvailable = isAvailable;
     }
 
-  
+    // createdAt and updatedAt now come from BaseEntity
+    // Keep these for backward compatibility
+    @Override
     public LocalDateTime getCreatedAt() {
-        return createdAt;
+        return super.getCreatedAt();
     }
 
+    @Override
     public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+        super.setCreatedAt(createdAt);
     }
 
+    @Override
     public LocalDateTime getUpdatedAt() {
-        return updatedAt;
+        return super.getUpdatedAt();
     }
 
+    @Override
     public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+        super.setUpdatedAt(updatedAt);
     }
 
     public Gender getGender() {
@@ -368,8 +348,6 @@ public class DoctorsEntity {
         this.specialization = specialization;
     }
 
- 
-
     public String getPreviousWorkplace() {
         return previousWorkplace;
     }
@@ -393,8 +371,6 @@ public class DoctorsEntity {
     public void setResignationDate(LocalDate resignationDate) {
         this.resignationDate = resignationDate;
     }
-
-   
 
     public EmploymentType getEmploymentType() {
         return employmentType;
@@ -436,21 +412,44 @@ public class DoctorsEntity {
         this.emergencyContactNumber = emergencyContactNumber;
     }
 
-    public DoctorsEntity() {
+    public List<DoctorDays> getAvailableDays() {
+        return availableDays;
     }
 
-  
-  	
-    public DoctorsEntity(Long doctorId, UsersEntity user,
-            Integer experienceYears, String hospitalClinicName, String hospitalClinicAddress, String pincode,
-            String address, String country, String city, String state, String bio, Double consultationFee,
-            Boolean isAvailable, Boolean profileCompleted, LocalDateTime createdAt, LocalDateTime updatedAt,
-            Gender gender, LocalDate dateOfBirth, String licenseNumber, LocalDate licenseIssueDate,
-            LocalDate licenseExpiryDate, String qualification, String specialization, Integer yearsOfExperience,
-            String previousWorkplace, LocalDate joiningDate, LocalDate resignationDate,
-             EmploymentType employmentType, Boolean isActive, String createdBy,
-            String updatedBy, String emergencyContactNumber) {
-        this.doctorId = doctorId;
+    public void setAvailableDays(List<DoctorDays> availableDays) {
+        this.availableDays = availableDays;
+    }
+
+    public DoctorProfileStatus getDoctorProfileStatus() {
+        return doctorProfileStatus;
+    }
+
+    public void setDoctorProfileStatus(DoctorProfileStatus doctorProfileStatus) {
+        this.doctorProfileStatus = doctorProfileStatus;
+    }
+
+    // Validate / default doctorProfileStatus before persist/update
+    @PrePersist
+    @PreUpdate
+    public void validateDoctorProfileStatus() {
+        // Call parent's lifecycle methods to ensure uid/timestamps are set
+        super.onCreate();
+        
+        if (this.doctorProfileStatus == null) {
+            this.doctorProfileStatus = DoctorProfileStatus.PENDING;
+        }
+    }
+
+    // Convenience constructor (optional)
+    public DoctorsEntity(UsersEntity user,
+                         Integer experienceYears, String hospitalClinicName, String hospitalClinicAddress, String pincode,
+                         String address, String country, String city, String state, String bio, Double consultationFee,
+                         Boolean isAvailable,
+                         Gender gender, LocalDate dateOfBirth, String licenseNumber, LocalDate licenseIssueDate,
+                         LocalDate licenseExpiryDate, String qualification, String specialization, String previousWorkplace,
+                         LocalDate joiningDate, LocalDate resignationDate,
+                         EmploymentType employmentType, Boolean isActive, String createdBy,
+                         String updatedBy, String emergencyContactNumber) {
         this.user = user;
         this.experienceYears = experienceYears;
         this.hospitalClinicName = hospitalClinicName;
@@ -463,8 +462,6 @@ public class DoctorsEntity {
         this.bio = bio;
         this.consultationFee = consultationFee;
         this.isAvailable = isAvailable;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
         this.gender = gender;
         this.dateOfBirth = dateOfBirth;
         this.licenseNumber = licenseNumber;
@@ -480,27 +477,5 @@ public class DoctorsEntity {
         this.createdBy = createdBy;
         this.updatedBy = updatedBy;
         this.emergencyContactNumber = emergencyContactNumber;
-    }
-    
-    public DoctorProfileStatus getDoctorProfileStatus() {
-		return doctorProfileStatus;
-	}
-
-	public void setDoctorProfileStatus(DoctorProfileStatus doctorProfileStatus) {
-		this.doctorProfileStatus = doctorProfileStatus;
-	}
-
-	@PrePersist
-    @PreUpdate
-    public void validateAppointmentStatus() {
-        if (this.doctorProfileStatus == null) {
-            this.doctorProfileStatus = DoctorProfileStatus.PENDING;
-        }
-        // Validate if the status is a valid enum value
-        try {
-            AppointmentStatus.valueOf(this.doctorProfileStatus.name());
-        } catch (Exception e) {
-            this.doctorProfileStatus = DoctorProfileStatus.PENDING;
-        }
     }
 }

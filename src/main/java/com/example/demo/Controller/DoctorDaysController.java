@@ -2,17 +2,12 @@ package com.example.demo.Controller;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.example.demo.Dto.DoctorDayRequest;
 import com.example.demo.Entities.DoctorDays;
@@ -25,47 +20,58 @@ import com.example.demo.Service.DoctorService;
 @RestController
 @RequestMapping("/api/doctor-days")
 public class DoctorDaysController {
-	@Autowired
+    @Autowired
     private DoctorDaysService doctorDaysService;
 
     @Autowired
     private DoctorService doctorService;
 
+    /**
+     * Endpoint unchanged: POST /api/doctor-days/doctor/{userUid}/days
+     * Note: userUid is the User's UID (UUID) from BaseEntity (passed as path value).
+     * We accept it as String and parse to UUID internally (no URL change).
+     */
     @PostMapping("/doctor/{userUid}/days")
     public ResponseEntity<?> addDoctorDays(
-            @PathVariable("userUid") Long userUid,
+            @PathVariable("userUid") String userUid,
             @RequestBody List<DoctorDayRequest> dayRequests) {
 
         try {
-            if (userUid == null) {
+            if (userUid == null || userUid.trim().isEmpty()) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error", "User uid is required in path"));
             }
 
-            // doctorId ko uid se fetch karo
-            Long doctorId = doctorService.getDoctorIdByUserUid(userUid);
- System.out.println("KKKKKKKKKKKKKKKKK" + doctorId);
-            // agar repository query null return kare toh 404
+            // Parse userUid to UUID safely
+            UUID parsedUid;
+            try {
+                parsedUid = UUID.fromString(userUid.trim());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Invalid userUid format. Must be a UUID string."));
+            }
+
+            // Fetch doctorId using doctorService (resolves UsersEntity.uid -> DoctorsEntity.id)
+            Long doctorId = doctorService.getDoctorIdByUserUid(parsedUid);
+
             if (doctorId == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("error", "Doctor profile not found for user uid: " + userUid));
             }
 
-            // create days (service mein validation/exception throw kar sakta hai)
             List<DoctorDays> createdDays = doctorDaysService.createDaysForDoctor(doctorId, dayRequests);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(createdDays);
 
         } catch (IllegalArgumentException ex) {
-            // validation related errors from service
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", ex.getMessage()));
         } catch (RuntimeException ex) {
-            // generic runtime errors
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Internal server error", "details", ex.getMessage()));
         }
     }
+
     @GetMapping("/doctor/{doctorId}")
     public ResponseEntity<?> getDoctorDays(@PathVariable long doctorId) {
         try {
@@ -77,11 +83,6 @@ public class DoctorDaysController {
         }
     }
 
-    /**
-     * ✅ NEW API: Get DoctorDays objects (with doctorDayId) for a specific day
-     * GET /api/doctor-days/day/{day}/details
-     * Example: /api/doctor-days/day/TUESDAY/details
-     */
     @GetMapping("/day/{day}/details")
     public ResponseEntity<?> getDoctorDaysByDay(@PathVariable DayOfWeek day) {
         try {
@@ -93,11 +94,6 @@ public class DoctorDaysController {
         }
     }
 
-    /**
-     * API 3: Get all doctors available on a specific day (returns DoctorsEntity only)
-     * GET /api/doctor-days/day/{day}
-     * Example: /api/doctor-days/day/MONDAY
-     */
     @GetMapping("/day/{day}")
     public ResponseEntity<?> getDoctorsByDay(@PathVariable DayOfWeek day) {
         try {
@@ -165,7 +161,7 @@ public class DoctorDaysController {
                     .body(Map.of("error", ex.getMessage()));
         }
     }
-    
+
     @GetMapping("/getDayId/{doctorId}/{day}")
     public ResponseEntity<?> getDayIdByDoctorAndDay(
             @PathVariable("doctorId") long doctorId,

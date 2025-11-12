@@ -1,8 +1,5 @@
 package com.example.demo.Service;
 
-
-
-
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -12,14 +9,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.demo.Repository.UserRepo;
-
 import com.example.demo.Entities.UsersEntity;
 
 @Service
 public class UserService {
     
     @Autowired
-    private UserRepo userRepository; // Fixed: Renamed from userRepo to avoid confusion
+    private UserRepo userRepository;
     
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -66,6 +62,7 @@ public class UserService {
         user.setOtp(encodedOtp);
         
         // Save user to database
+        // NOTE: BaseEntity automatically sets id, uid, createdAt, updatedAt via @PrePersist
         UsersEntity savedUser = userRepository.save(user);
         
         // Set plain OTP for response (not saving to DB)
@@ -93,7 +90,6 @@ public class UserService {
      * @return String - Base64 encoded token
      */
     private String generateToken(String phoneNumber) {
-      
         String rawData = phoneNumber + ":" + System.currentTimeMillis();
         return Base64.getEncoder().encodeToString(rawData.getBytes());
     }
@@ -105,9 +101,12 @@ public class UserService {
      * @return boolean - true if OTP is valid
      */
     public boolean verifyOtp(String phoneNumber, String otp) {
-        UsersEntity user = userRepository.findByPhoneNumber(phoneNumber);
-        if (user != null && user.getOtp() != null) {
-            return passwordEncoder.matches(otp, user.getOtp());
+        Optional<UsersEntity> userOptional = userRepository.findByPhoneNumber(phoneNumber);
+        if (userOptional.isPresent()) {
+            UsersEntity user = userOptional.get();
+            if (user.getOtp() != null) {
+                return passwordEncoder.matches(otp, user.getOtp());
+            }
         }
         return false;
     }
@@ -118,7 +117,8 @@ public class UserService {
      * @return UsersEntity - Found user or null
      */
     public UsersEntity findByEmail(String email) {
-        return userRepository.findByEmail(email);
+        Optional<UsersEntity> userOptional = userRepository.findByEmail(email);
+        return userOptional.orElse(null);
     }
     
     /**
@@ -127,7 +127,8 @@ public class UserService {
      * @return UsersEntity - Found user or null
      */
     public UsersEntity findByPhoneNumber(String phoneNumber) {
-        return userRepository.findByPhoneNumber(phoneNumber);
+        Optional<UsersEntity> userOptional = userRepository.findByPhoneNumber(phoneNumber);
+        return userOptional.orElse(null);
     }
     
     // ============ NEW METHODS FOR APPOINTMENT FUNCTIONALITY ============
@@ -194,6 +195,7 @@ public class UserService {
                 user.setLastName(updatedUser.getLastName());
             }
             
+            // BaseEntity automatically updates updatedAt timestamp via @PreUpdate
             return userRepository.save(user);
         }
         return null;
@@ -281,13 +283,11 @@ public class UserService {
      * @return List<UsersEntity> - List of recently registered users
      */
     public List<UsersEntity> getRecentlyRegisteredUsers(int limit) {
-        // Assuming there's a createdAt field or similar
-        // return userRepository.findTopByOrderByCreatedAtDesc(limit);
-        return userRepository.findAll(); // Placeholder - implement based on your entity structure
+        // Now createdAt is available from BaseEntity
+        return userRepository.findTopRecentUsers(limit);
     }
     
-    
-// ------------------------------------
+    // ------------------------------------
     /**
      * Get user by ID
      * @param userId - User ID to search
@@ -370,7 +370,6 @@ public class UserService {
         
         UsersEntity user = userOptional.get();
         
-       
         return user;
     }
 }

@@ -47,8 +47,8 @@ public class AppointmentService {
      * ✅ STEP 2: Get available slots for a doctor on a specific date
      * Excludes slots that are already booked
      *
-     * @param doctorId - Doctor's ID
-     * @param doctorDayId - DoctorDay ID (from step 1)
+     * @param doctorId - Doctor's ID (database PK - Long)
+     * @param doctorDayId - DoctorDay ID (database PK - Long)
      * @param date - Appointment date
      * @return List of available slots
      */
@@ -66,24 +66,18 @@ public class AppointmentService {
             throw new RuntimeException("Doctor day not found with id: " + doctorDayId);
         }
 
-        // ✅ 1. Get all slots configured for this doctor on that day
+        // 1. Get all slots configured for this doctor day
         List<DoctorSlots> allSlots = doctorSlotRepository.findByDoctorDay_Id(doctorDayId);
 
-        // ✅ 2. Get all slot IDs already booked for this doctor, day, and date
-        List<Appointment> bookedAppointment = getBookedAppointmentsByDoctorAndDate(doctorId, date);
-
-        System.out.println("&&&&&&&&&&&&&&&&&&" + bookedAppointment);
-
+        // 2. Get booked slot IDs for this doctor, day and date
         List<Long> bookedSlotIds = appointmentRepository
                 .findByDoctorIdAndDoctorDayIdAndAppointmentDateAndStatus(
                         doctorId, doctorDayId, date, AppointmentStatus.BOOKED)
                 .stream()
                 .map(Appointment::getSlotId)
-                .toList();
+                .collect(Collectors.toList());
 
-        System.out.println(bookedSlotIds + "*****************");
-
-        // ✅ 3. Return only the slots NOT in bookedSlotIds
+        // 3. Return only slots not booked
         return allSlots.stream()
                 .filter(slot -> !bookedSlotIds.contains(slot.getId()))
                 .collect(Collectors.toList());
@@ -104,7 +98,7 @@ public class AppointmentService {
             throw new RuntimeException("This slot is already booked for the selected date");
         }
 
-        // Create appointment
+        // Create appointment (uses constructor that sets status = BOOKED)
         Appointment appointment = new Appointment(
                 userId, petId, doctorId, doctorDayId, slotId, appointmentDate
         );
@@ -172,7 +166,7 @@ public class AppointmentService {
     }
 
     /**
-     * Get appointments by status
+     * Get appointments by status for a user
      */
     public List<Appointment> getAppointmentsByStatus(Long userId, AppointmentStatus status) {
         if (userId == null || status == null) {
@@ -281,12 +275,12 @@ public class AppointmentService {
             throw new RuntimeException("Cannot book appointment for past dates");
         }
 
-        // Validate doctor exists
+        // Validate doctor exists (by DB id)
         if (!doctorRepository.existsById(doctorId)) {
             throw new RuntimeException("Doctor not found with id: " + doctorId);
         }
 
-        // Validate slot exists
+        // Validate slot exists (by DB id)
         if (!doctorSlotRepository.existsById(slotId)) {
             throw new RuntimeException("Slot not found with id: " + slotId);
         }
@@ -297,13 +291,12 @@ public class AppointmentService {
             throw new IllegalArgumentException("Doctor ID and Date are required");
         }
 
-        System.out.println("*^&%$#$%^&*(");
         // Validate doctor exists
         if (!doctorRepository.existsById(doctorId)) {
             throw new RuntimeException("Doctor not found with id: " + doctorId);
         }
 
-        // Use the improved query with JOIN FETCH
+        // Use the improved query with JOIN FETCH for full details
         return appointmentRepository.findBookedAppointmentsByDoctorAndDateWithDetails(doctorId, date);
     }
 }

@@ -14,6 +14,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -28,10 +30,10 @@ import jakarta.validation.constraints.Pattern;
 @Entity
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Table(name = "users_entity")
-public class UsersEntity implements UserDetails {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long uid;
+public class UsersEntity extends BaseEntity implements UserDetails {
+    
+    // NOTE: id, uid, createdAt, updatedAt are now inherited from BaseEntity
+    // Removed duplicate uid field as it's now in BaseEntity
     
     @Email(message = "Please provide a valid email")
     @Column(unique = true, nullable = false)
@@ -70,12 +72,6 @@ public class UsersEntity implements UserDetails {
     @Column(name = "user_type", nullable = false)
     private Integer userType; // 1=Client, 2=Doctor, 3=Service Provider
     
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-    
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-    
     @Column(name = "otp")
     private String otp;
 
@@ -86,17 +82,13 @@ public class UsersEntity implements UserDetails {
     @Column(name = "is_profile_completed", nullable = false)
     private boolean isProfileCompleted = false;
 
-    // Automatically set timestamps
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-    
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    // ============ USER ROLE RELATIONSHIP ============
+    @ManyToOne
+    @JoinColumn(name = "user_role_id")
+    private UserPermission userRole;
+
+    // NOTE: onCreate and onUpdate are now handled by BaseEntity
+    // Removed duplicate @PrePersist and @PreUpdate methods
     
     // Helper method to get user type as string
     public String getUserTypeAsString() {
@@ -113,7 +105,7 @@ public class UsersEntity implements UserDetails {
         return countryCode + phoneNumber;
     }
     
-    // UserDetails implementation - FIXED
+    // UserDetails implementation
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         // Return authority based on user type
@@ -156,13 +148,8 @@ public class UsersEntity implements UserDetails {
     }
     
     // Getters and Setters
-    public Long getUid() {
-        return uid;
-    }
-    
-    public void setUid(Long uid) {
-        this.uid = uid;
-    }
+    // NOTE: getId(), getUid(), setUid(), getCreatedAt(), setCreatedAt(), 
+    // getUpdatedAt(), setUpdatedAt() are now inherited from BaseEntity
     
     public String getEmail() {
         return email;
@@ -219,22 +206,6 @@ public class UsersEntity implements UserDetails {
     public void setUserType(Integer userType) {
         this.userType = userType;
     }
-    
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-    
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-    
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-    
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
 
     // Token getter & setter
     public String getToken() {
@@ -251,5 +222,14 @@ public class UsersEntity implements UserDetails {
 
     public void setProfileCompleted(boolean isProfileCompleted) {
         this.isProfileCompleted = isProfileCompleted;
+    }
+
+    // ============ USER ROLE GETTER & SETTER ============
+    public UserPermission getUserRole() {
+        return userRole;
+    }
+
+    public void setUserRole(UserPermission userRole) {
+        this.userRole = userRole;
     }
 }

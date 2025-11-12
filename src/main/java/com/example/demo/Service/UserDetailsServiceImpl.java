@@ -11,20 +11,26 @@ import com.example.demo.Repository.UserRepo;
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
 
-    private final UserRepo userRepo;
+	@Override
+	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
-    public UserDetailsServiceImpl(UserRepo userRepo) {
-        this.userRepo = userRepo;
-    }
-
-    @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        UsersEntity user = userRepo.findByEmail(username);
-        
-        if (user == null) {
-            throw new UsernameNotFoundException("User not found with email: " + username);
-        }
-        
-        return user;
-    }
+//    private final UserRepo userRepo;
+//
+//    public UserDetailsServiceImpl(UserRepo userRepo) {
+//        this.userRepo = userRepo;
+//    }
+//
+//    @Override
+//    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+//        UsersEntity user = userRepo.findByEmail(username);
+//        
+//        if (user == null) {
+//            throw new UsernameNotFoundException("User not found with email: " + username);
+//        }
+//        
+//        return user;
+//    }
 }

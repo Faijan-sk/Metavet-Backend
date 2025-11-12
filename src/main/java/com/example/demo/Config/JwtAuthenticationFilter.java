@@ -2,6 +2,7 @@ package com.example.demo.Config;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -9,12 +10,10 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import com.example.demo.Entities.AdminsEntity;
 import com.example.demo.Entities.UsersEntity;
@@ -33,9 +32,6 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
-    private HandlerExceptionResolver handlerExceptionResolver;
-
-    @Autowired
     private JwtService jwtService;
 
     @Autowired
@@ -52,18 +48,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private UserRepo userRepository;
 
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request, 
+    protected void doFilterInternal(@NonNull HttpServletRequest request,
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
-        
+
         final String requestURI = request.getRequestURI();
         final String method = request.getMethod();
-        
+
         System.out.println("===== JWT Filter Debug =====");
         System.out.println("Request URI: " + requestURI);
         System.out.println("Request Method: " + method);
-        
-        // ✅ CRITICAL FIX: Skip authentication for public endpoints FIRST
+
+        // Skip authentication for public endpoints FIRST
         if (shouldSkipAuthentication(requestURI, method)) {
             System.out.println("✅ PUBLIC ENDPOINT - Skipping authentication for: " + requestURI);
             filterChain.doFilter(request, response);
@@ -74,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String authHeader = request.getHeader("Authorization");
         System.out.println("Auth Header: " + (authHeader != null ? "Present" : "Missing"));
         System.out.println("============================");
-        
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             System.out.println("❌ Missing or invalid Authorization header for protected endpoint");
             handleAuthenticationError(response, 401, "Missing or invalid authorization header");
@@ -88,9 +84,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             final String userEmail = jwtService.extractUsername(cleanJwt, true);
             final String userType = jwtService.extractUserType(cleanJwt, true);
-            final Long userId = jwtService.extractUserId(cleanJwt, true);
+            final String jwtUserIdString = jwtService.extractUserId(cleanJwt, true);  // ✅ String
+            final Long jwtUserDbId = jwtService.extractUserDbId(cleanJwt, true);      // ✅ Long (DB ID)
 
-            System.out.println("Extracted - Email: " + userEmail + ", Type: " + userType + ", ID: " + userId);
+            System.out.println("Extracted - Email: " + userEmail + ", Type: " + userType + ", JWT User ID: " + jwtUserIdString + ", DB ID: " + jwtUserDbId);
 
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -104,24 +101,70 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 CustomUserDetails userDetails = null;
 
-                if ("ADMIN".equals(userType)) {
+                if ("ADMIN".equalsIgnoreCase(userType)) {
                     Optional<AdminsEntity> adminOpt = adminRepository.findByEmail(userEmail);
                     if (adminOpt.isPresent()) {
                         AdminsEntity admin = adminOpt.get();
-                        userDetails = new CustomUserDetails(admin.getEmail(), "ADMIN", cleanJwt, admin.getId(), admin.getRole());
-                        System.out.println("✅ Admin authentication successful");
+                        Long adminId = admin.getId();
+                        Integer adminRole = null;
+                        try {
+                            adminRole = admin.getRole();
+                        } catch (Exception ignored) {}
+                        
+                        // ✅ For Admin: userId is numeric ID, no UUID
+                        userDetails = new CustomUserDetails(
+                            admin.getEmail(), 
+                            "ADMIN", 
+                            cleanJwt, 
+                            adminId,        // numeric ID
+                            null,           // no UUID for admin
+                            adminRole
+                        );
+                        
+                        System.out.println("✅ Admin authentication successful for email: " + admin.getEmail());
+                        
+                        // Set request attributes
+                        request.setAttribute("userId", adminId);
+                        request.setAttribute("userDbId", adminId);
+                        
                     } else {
-                        System.out.println("❌ Admin not found in database");
+                        System.out.println("❌ Admin not found in database for email: " + userEmail);
                         handleAuthenticationError(response, 401, "Admin not found");
                         return;
                     }
-                } else if ("USER".equals(userType)) {
-                    UsersEntity user = userRepository.findByEmail(userEmail);
-                    if (user != null) {
-                        userDetails = new CustomUserDetails(user.getEmail(), "USER", cleanJwt, user.getUid(), user.getUserType());
-                        System.out.println("✅ User authentication successful");
+                    
+                } else if ("USER".equalsIgnoreCase(userType)) {
+                    Optional<UsersEntity> userOpt = userRepository.findByEmail(userEmail);
+                    if (userOpt.isPresent()) {
+                        UsersEntity user = userOpt.get();
+                        Long dbUserId = user.getId();       // ✅ Numeric DB ID
+                        UUID userUid = user.getUid();       // ✅ UUID
+                        
+                        Integer userRoleOrType = null;
+                        try {
+                            userRoleOrType = user.getUserType();
+                        } catch (Exception ignored) {}
+                        
+                        userDetails = new CustomUserDetails(
+                            user.getEmail(), 
+                            "USER", 
+                            cleanJwt, 
+                            dbUserId,       // numeric ID
+                            userUid,        // UUID
+                            userRoleOrType
+                        );
+                        
+                        System.out.println("✅ User authentication successful for email: " + user.getEmail());
+                        System.out.println("   DB ID: " + dbUserId + ", UUID: " + userUid);
+                        
+                        // ✅ Set request attributes (both formats for compatibility)
+                        request.setAttribute("userId", dbUserId);           // Numeric ID
+                        request.setAttribute("userUid", userUid);           // UUID
+                        request.setAttribute("userUUID", userUid);          // Alternative name
+                        request.setAttribute("userDbId", dbUserId);         // Explicit DB ID
+                        
                     } else {
-                        System.out.println("❌ User not found in database");
+                        System.out.println("❌ User not found in database for email: " + userEmail);
                         handleAuthenticationError(response, 401, "User not found");
                         return;
                     }
@@ -138,11 +181,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
 
-                    // Set request attributes for controllers
+                    // Set common request attributes
                     request.setAttribute("userType", userType);
                     request.setAttribute("userEmail", userEmail);
-                    request.setAttribute("userId", userId);
-
+                    
                     System.out.println("✅ Authentication context set successfully");
                 }
             }
@@ -161,7 +203,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * ✅ Skip authentication for public endpoints
+     * Skip authentication for public endpoints
      */
     private boolean shouldSkipAuthentication(String requestURI, String method) {
         // Always allow OPTIONS requests for CORS preflight
@@ -169,7 +211,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
 
-        // ✅ Public endpoints - these don't need authentication
+        // Public endpoints - these don't need authentication
         String[] publicPrefixes = {
             "/api/auth/",          // All auth endpoints (login, register, etc.)
             "/pub/",               // Public static content
@@ -186,26 +228,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // Basic system endpoints
-        boolean isBasicEndpoint = "/".equals(requestURI) || 
+        boolean isBasicEndpoint = "/".equals(requestURI) ||
                                   "/favicon.ico".equals(requestURI) ||
                                   requestURI.startsWith("/static/");
-        
+
         if (isBasicEndpoint) {
             System.out.println("✅ Matched basic endpoint");
         }
-        
+
         return isBasicEndpoint;
     }
 
     /**
-     * ✅ Handle authentication errors with proper CORS headers
+     * Handle authentication errors with proper CORS headers
      */
     private void handleAuthenticationError(HttpServletResponse response, int status, String message) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
 
-        // ✅ Add CORS headers for error responses
+        // Add CORS headers for error responses
         response.setHeader("Access-Control-Allow-Origin", "*");
         response.setHeader("Access-Control-Allow-Credentials", "true");
         response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
@@ -218,19 +260,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 }
 
-// ✅ Custom UserDetails implementation
-class CustomUserDetails implements UserDetails {
+// ✅ Updated CustomUserDetails with UUID support
+class CustomUserDetails implements org.springframework.security.core.userdetails.UserDetails {
     private final String email;
     private final String userType;
     private final String token;
-    private final Long userId;
+    private final Long userId;           // ✅ Numeric DB ID
+    private final UUID userUid;          // ✅ UUID (for Users only)
     private final Integer role;
 
-    public CustomUserDetails(String email, String userType, String token, Long userId, Integer role) {
+    // Constructor with UUID support
+    public CustomUserDetails(String email, String userType, String token, Long userId, UUID userUid, Integer role) {
         this.email = email;
         this.userType = userType;
         this.token = token;
         this.userId = userId;
+        this.userUid = userUid;
         this.role = role;
     }
 
@@ -246,6 +291,8 @@ class CustomUserDetails implements UserDetails {
 
     public Long getUserId() { return userId; }
 
+    public UUID getUserUid() { return userUid; }  // ✅ NEW: Get UUID
+
     public Integer getRole() { return role; }
 
     @Override
@@ -253,7 +300,7 @@ class CustomUserDetails implements UserDetails {
         java.util.List<org.springframework.security.core.authority.SimpleGrantedAuthority> authorities =
                 new java.util.ArrayList<>();
 
-        if ("ADMIN".equals(userType)) {
+        if ("ADMIN".equalsIgnoreCase(userType)) {
             authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"));
             if (role != null) {
                 authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ADMIN_ROLE_" + role));
