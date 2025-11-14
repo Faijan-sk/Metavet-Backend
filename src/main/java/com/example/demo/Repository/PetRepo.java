@@ -103,4 +103,10 @@ public interface PetRepo extends JpaRepository<PetsEntity, Long> {
     
     //delete pet by uid 
     void deleteByUid(UUID uid);
+
+    
+    // Check if pet exists by UUID
+    boolean existsByUid(UUID uid);
+    
+    
 }

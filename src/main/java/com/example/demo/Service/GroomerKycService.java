@@ -72,6 +72,7 @@ public class GroomerKycService {
 				byte[] fileBytes = dto.getGroomingCertificateDoc().getBytes();
 				String path = saveFile(dto.getGroomingCertificateDoc(), "grooming_certificate", dto.getEmail(),
 						allowedExtensions);
+				kyc.setGroomingCertDetails(dto.getGroomingCertDetails());
 				kyc.setGroomingCertificateDoc(fileBytes);
 				kyc.setGroomingCertificateDocPath(path);
 			} else {
@@ -98,6 +99,9 @@ public class GroomerKycService {
 				byte[] fileBytes = dto.getInsuranceDoc().getBytes();
 				String path = saveFile(dto.getInsuranceDoc(), "insurance", dto.getEmail(), allowedExtensions);
 				kyc.setInsuranceDoc(fileBytes);
+				kyc.setInsuranceExpiry(dto.getInsuranceExpiry());
+				kyc.setInsurancePolicyNumber(dto.getInsurancePolicyNumber());
+				kyc.setInsuranceProvider(dto.getInsuranceProvider());
 				kyc.setInsuaranceDoccPath(path);
 			} else {
 				throw new ValidationException("Insurance Document is required.");
@@ -237,7 +241,7 @@ public class GroomerKycService {
 
 		// Save file
 		File destFile = new File(filePath);
-		file.transferTo(destFile);
+		file.transferTo(destFile);	
 
 		return filePath;
 	}
