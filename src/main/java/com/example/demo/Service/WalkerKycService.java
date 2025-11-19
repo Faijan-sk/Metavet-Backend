@@ -7,7 +7,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class WalkerKycService {
         this.authenticationManager = authenticationManager;
     }
 
+    // ===================== CREATE METHOD =====================
     public void createWalkerKyc(WalkerKycRequestDto dto, List<String> documentNames,
             List<MultipartFile> documentFiles) throws IOException, ValidationException, java.io.IOException {
 
@@ -155,7 +159,6 @@ public class WalkerKycService {
 
         // ============================================ Operations ============================================
 
-     // Service में बदलाव
         if (dto.getWalkRadius() != null && !dto.getWalkRadius().trim().isEmpty()) {
             kyc.setWalkRadius(dto.getWalkRadius());
             System.out.println("Walk Radius saved: " + dto.getWalkRadius());
@@ -202,7 +205,116 @@ public class WalkerKycService {
         walkerKycRepository.save(kyc);
     }
 
-    // =================================================================
+    // ===================== GET ALL METHOD =====================
+    public List<WalkerKycRequestDto> getAll() {
+        List<WalkerKyc> allDocuments = walkerKycRepository.findAllByOrderByCreatedAtDesc();
+        System.out.println("***************" + allDocuments.size());
+        return allDocuments.stream().map(this::copyToDto).collect(Collectors.toList());
+    }
+
+    // ===================== GET BY UID METHOD =====================
+    public WalkerKycRequestDto getWalkerKycByUid(UUID uid) throws ValidationException {
+        WalkerKyc kyc = walkerKycRepository.findByUid(uid)
+                .orElseThrow(() -> new ValidationException("Walker KYC not found with uid: " + uid));
+        return copyToDto(kyc);
+    }
+
+    // ===================== DELETE BY UID METHOD =====================
+    public void deleteWalkerKycByUid(UUID uid) throws ValidationException {
+        WalkerKyc kyc = walkerKycRepository.findByUid(uid)
+                .orElseThrow(() -> new ValidationException("Walker KYC not found with uid: " + uid));
+
+        // Delete associated files from filesystem
+        deleteAssociatedFiles(kyc);
+
+        walkerKycRepository.delete(kyc);
+    }
+
+    // ===================== GET STATUS BY UID METHOD =====================
+    public String getStatusByUid(UUID uid) throws ValidationException {
+        WalkerKyc kyc = walkerKycRepository.findByUid(uid)
+                .orElseThrow(() -> new ValidationException("Walker KYC not found with uid: " + uid));
+        return kyc.getStatus();
+    }
+
+    // ===================== UPDATE STATUS BY UID METHOD =====================
+    public WalkerKycRequestDto updateApplicationStatusByUid(UUID uid, String status) throws ValidationException {
+        WalkerKyc kyc = walkerKycRepository.findByUid(uid)
+                .orElseThrow(() -> new ValidationException("Walker KYC not found with uid: " + uid));
+
+        kyc.setStatus(status);
+        WalkerKyc updatedKyc = walkerKycRepository.save(kyc);
+
+        return copyToDto(updatedKyc);
+    }
+
+    // ===================== HELPER METHODS =====================
+
+    private WalkerKycRequestDto copyToDto(WalkerKyc entity) {
+        WalkerKycRequestDto dto = new WalkerKycRequestDto();
+
+        // Copy all properties using BeanUtils
+        BeanUtils.copyProperties(entity, dto);
+
+        // Explicitly set BaseEntity fields (in case BeanUtils doesn't copy them)
+        dto.setId(entity.getId());
+        dto.setUid(entity.getUid());
+        dto.setCreatedAt(entity.getCreatedAt());
+        dto.setUpdatedAt(entity.getUpdatedAt());
+
+        // base endpoint (relative). If you want absolute URL include host via ServletUriComponentsBuilder.
+        String base = "/api/walkerkyc/uploaded_files/" + entity.getUid();
+
+        // For each stored file, set path (filename) and a type-specific URL
+        if (entity.getCertificationFilePath() != null && !entity.getCertificationFilePath().isBlank()) {
+            dto.setCertificationFilePath(entity.getCertificationFilePath());
+            dto.setCertificationFileURL(base + "/pet_care_certification");
+        }
+        if (entity.getBondedFilePath() != null && !entity.getBondedFilePath().isBlank()) {
+            dto.setBondedFilePath(entity.getBondedFilePath());
+            dto.setBondedFileURL(base + "/bonded_or_insured");
+        }
+        if (entity.getFirstAidFilePath() != null && !entity.getFirstAidFilePath().isBlank()) {
+            dto.setFirstAidFilePath(entity.getFirstAidFilePath());
+            dto.setFirstAidFileURL(base + "/pet_first_aid_certificate");
+        }
+        if (entity.getCriminalCheckFilePath() != null && !entity.getCriminalCheckFilePath().isBlank()) {
+            dto.setCriminalCheckFilePath(entity.getCriminalCheckFilePath());
+            dto.setCriminalCheckFileURL(base + "/criminal_record");
+        }
+        if (entity.getLiabilityFilePath() != null && !entity.getLiabilityFilePath().isBlank()) {
+            dto.setLiabilityFilePath(entity.getLiabilityFilePath());
+            dto.setLiabilityFileURL(base + "/liability_insurance");
+        }
+        if (entity.getBusinessLicenseFilePath() != null && !entity.getBusinessLicenseFilePath().isBlank()) {
+            dto.setBusinessLicenseFilePath(entity.getBusinessLicenseFilePath());
+            dto.setBusinessLicenseFileURL(base + "/business_license");
+        }
+
+        return dto;
+    }
+
+    private void deleteAssociatedFiles(WalkerKyc kyc) {
+        // Delete all associated files from filesystem
+        deleteFileIfExists(kyc.getCertificationFilePath());
+        deleteFileIfExists(kyc.getBondedFilePath());
+        deleteFileIfExists(kyc.getFirstAidFilePath());
+        deleteFileIfExists(kyc.getCriminalCheckFilePath());
+        deleteFileIfExists(kyc.getLiabilityFilePath());
+        deleteFileIfExists(kyc.getBusinessLicenseFilePath());
+    }
+
+    private void deleteFileIfExists(String filePath) {
+        if (filePath != null && !filePath.isEmpty()) {
+            try {
+                Path path = Paths.get(filePath);
+                Files.deleteIfExists(path);
+            } catch (IOException e) {
+                // Log error but don't throw exception
+                System.err.println("Failed to delete file: " + filePath);
+            }
+        }
+    }
 
     private String saveFile(MultipartFile file, String type, String identifier, List<String> allowedExtensions)
             throws IOException, ValidationException {
@@ -214,18 +326,13 @@ public class WalkerKycService {
             throw new ValidationException("Invalid file type for: " + originalFilename);
         }
 
-        // Create absolute path in project directory
         String folderPath = DOCUMENT_ROOT + File.separator + QrFolder + File.separator + identifier + File.separator;
         Path directory = Paths.get(folderPath);
-
-        // Create directories if they don't exist
         Files.createDirectories(directory);
 
-        // Create full file path
         String fileName = type + "_" + System.currentTimeMillis() + "." + ext;
         String filePath = folderPath + fileName;
 
-        // Save file
         File destFile = new File(filePath);
         file.transferTo(destFile);
 

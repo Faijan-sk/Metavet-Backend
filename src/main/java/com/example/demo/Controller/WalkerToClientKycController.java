@@ -1,6 +1,9 @@
 package com.example.demo.Controller;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -115,6 +119,25 @@ public class WalkerToClientKycController {
     }
 
     /**
+     * ==================== NEW: Get All Walker KYCs ====================
+     * GET /api/walker-kyc
+     */
+    @GetMapping
+    public ResponseEntity<?> getAllWalkerKycs() {
+        try {
+            List<WalkerToClientKycEntity> kycs = walkerKycService.getAllWalkerKycs();
+            
+            logger.info("Retrieved {} Walker KYCs", kycs.size());
+            return ResponseEntity.ok(kycs);
+
+        } catch (Exception ex) {
+            logger.error("Error fetching all Walker KYCs", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An error occurred while fetching KYCs.");
+        }
+    }
+
+    /**
      * Get Walker KYC by ID
      * GET /api/walker-kyc/{id}
      */
@@ -132,6 +155,36 @@ public class WalkerToClientKycController {
 
         } catch (Exception ex) {
             logger.error("Error fetching Walker KYC by ID: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An error occurred while fetching KYC.");
+        }
+    }
+
+    /**
+     * ==================== NEW: Get Walker KYC by UID ====================
+     * GET /api/walker-kyc/uid/{uid}
+     */
+    @GetMapping("/uid/{uid}")
+    public ResponseEntity<?> getWalkerKycByUid(@PathVariable String uid) {
+        try {
+            UUID uuid = UUID.fromString(uid);
+            Optional<WalkerToClientKycEntity> kyc = walkerKycService.getWalkerKycByUid(uuid);
+            
+            if (kyc.isPresent()) {
+                logger.info("Retrieved Walker KYC by UID: {}", uid);
+                return ResponseEntity.ok(kyc.get());
+            } else {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body("Walker KYC with UID " + uid + " not found.");
+            }
+
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid UID format: {}", uid);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid UID format: " + uid);
+
+        } catch (Exception ex) {
+            logger.error("Error fetching Walker KYC by UID: {}", uid, ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An error occurred while fetching KYC.");
         }
@@ -184,6 +237,48 @@ public class WalkerToClientKycController {
     }
 
     /**
+     * ==================== NEW: Update Status by UID ====================
+     * PATCH /api/walker-kyc/uid/{uid}/status
+     * 
+     * Request Body: { "status": "APPROVED" }
+     */
+    @PatchMapping("/uid/{uid}/status")
+    public ResponseEntity<?> updateStatusByUid(
+            @PathVariable String uid,
+            @RequestBody Map<String, String> statusUpdate) {
+        
+        try {
+            UUID uuid = UUID.fromString(uid);
+            String status = statusUpdate.get("status");
+            
+            if (status == null || status.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body("Status field is required in request body.");
+            }
+            
+            WalkerToClientKycEntity updatedKyc = walkerKycService.updateStatusByUid(uuid, status);
+            
+            logger.info("Walker KYC status updated successfully for UID: {} to status: {}", uid, status);
+            return ResponseEntity.ok(updatedKyc);
+
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid UID format: {}", uid);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid UID format: " + uid);
+
+        } catch (ValidationException ve) {
+            logger.warn("ValidationException while updating status: {}", ve.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ve.getMessage());
+
+        } catch (Exception ex) {
+            logger.error("Unexpected error while updating status for UID: {}", uid, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An unexpected error occurred: " + ex.getMessage());
+        }
+    }
+
+    /**
      * Delete Walker KYC
      * DELETE /api/walker-kyc/{id}
      */
@@ -202,6 +297,36 @@ public class WalkerToClientKycController {
 
         } catch (Exception ex) {
             logger.error("Error deleting Walker KYC with ID: {}", id, ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("An error occurred while deleting KYC.");
+        }
+    }
+
+    /**
+     * ==================== NEW: Delete Walker KYC by UID ====================
+     * DELETE /api/walker-kyc/uid/{uid}
+     */
+    @DeleteMapping("/uid/{uid}")
+    public ResponseEntity<?> deleteWalkerKycByUid(@PathVariable String uid) {
+        try {
+            UUID uuid = UUID.fromString(uid);
+            walkerKycService.deleteWalkerKycByUid(uuid);
+            
+            logger.info("Walker KYC deleted successfully with UID: {}", uid);
+            return ResponseEntity.ok("Walker KYC deleted successfully.");
+
+        } catch (IllegalArgumentException e) {
+            logger.warn("Invalid UID format: {}", uid);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid UID format: " + uid);
+
+        } catch (ValidationException ve) {
+            logger.warn("ValidationException while deleting Walker KYC: {}", ve.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ve.getMessage());
+
+        } catch (Exception ex) {
+            logger.error("Error deleting Walker KYC with UID: {}", uid, ex);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("An error occurred while deleting KYC.");
         }

@@ -8,6 +8,10 @@ import jakarta.validation.constraints.NotNull;
 
 public class WalkerToClientKycRequestDto {
 
+    // ==================== Status Field ====================
+    
+    private String status; // "PENDING", "APPROVED", "REJECTED" - Optional
+
     // ==================== Pet & Routine Overview ====================
     
     private String petUid; // UUID string from frontend
@@ -95,6 +99,14 @@ public class WalkerToClientKycRequestDto {
     private LocalDate signatureDate;
 
     // ==================== Getters & Setters ====================
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
     public String getPetUid() {
         return petUid;

@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "walker_kyc")
+@Table(name = "metavet_to_walker_kyc")
 public class WalkerKyc extends BaseEntity {
     
     @Column(name = "full_legal_name", nullable = false)

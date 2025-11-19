@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Entity
-@Table(name = "behaviour_specialists")
+@Table(name = "metavet_behaviourist_kyc")
 public class BehaviouristKyc extends BaseEntity {
 
     // ---------------- Personal & Business Information ----------------

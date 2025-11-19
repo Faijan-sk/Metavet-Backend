@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 
 @Entity
-@Table(name = "groomer_kyc")
+//@Table(name = "metavet_to_groomer_kyc")
 public class GroomerKyc extends BaseEntity {
 
 	// Personal & Business Information

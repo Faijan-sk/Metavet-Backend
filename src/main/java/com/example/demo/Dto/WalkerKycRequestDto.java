@@ -1,10 +1,18 @@
 package com.example.demo.Dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.springframework.web.multipart.MultipartFile;
 
 public class WalkerKycRequestDto {
+
+    // BaseEntity fields
+    private Long id;
+    private UUID uid;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     // Personal & Business Information
     private String fullLegalName;
@@ -116,6 +124,38 @@ public class WalkerKycRequestDto {
     private String status;
 
     // ============================================ Getters and Setters ============================================
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public UUID getUid() {
+        return uid;
+    }
+
+    public void setUid(UUID uid) {
+        this.uid = uid;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 
     public String getFullLegalName() {
         return fullLegalName;

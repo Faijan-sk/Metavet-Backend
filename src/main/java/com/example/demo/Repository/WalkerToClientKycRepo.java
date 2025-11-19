@@ -59,7 +59,15 @@ public interface WalkerToClientKycRepo extends JpaRepository<WalkerToClientKycEn
     @Query("SELECT w FROM WalkerToClientKycEntity w WHERE LOWER(w.signature) LIKE LOWER(CONCAT('%', :signature, '%'))")
     List<WalkerToClientKycEntity> searchBySignature(@Param("signature") String signature);
 
-    // ---------- NEW: Search queries for comma-separated fields ----------
+    // ---------- NEW: Status Related Queries ----------
+    
+    // Find by status
+    List<WalkerToClientKycEntity> findByStatus(WalkerToClientKycEntity.KycStatus status);
+    
+    // Check if KYC exists by UID
+    boolean existsByUid(UUID uid);
+
+    // ---------- Search queries for comma-separated fields ----------
     
     // Search by leash behavior (comma-separated field)
     @Query("SELECT w FROM WalkerToClientKycEntity w WHERE LOWER(w.leashBehavior) LIKE LOWER(CONCAT('%', :behavior, '%'))")

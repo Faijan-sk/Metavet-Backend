@@ -7,14 +7,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.Dto.GroomerKycRequestDto;
 import com.example.demo.Entities.GroomerKyc;
+import com.example.demo.Entities.GroomerKyc.ApplicationStatus;
 import com.example.demo.Entities.GroomerKyc.ServiceOffered;
 import com.example.demo.Repository.GroomerKycRepo;
 
@@ -23,8 +26,6 @@ import jakarta.validation.ValidationException;
 @Service
 public class GroomerKycService {
 
-	private final AuthenticationManager authenticationManager;
-
 	@Autowired
 	private GroomerKycRepo groomerKycRepository;
 
@@ -32,10 +33,7 @@ public class GroomerKycService {
 	private static final String QrFolder = "groomer_kyc";
 	private static final String Qr_FILE_DIR = DOCUMENT_ROOT + File.separator + QrFolder + File.separator;
 
-	GroomerKycService(AuthenticationManager authenticationManager) {
-		this.authenticationManager = authenticationManager;
-	}
-
+	// ===================== CREATE METHOD =====================
 	public void createGroomerKyc(GroomerKycRequestDto dto, List<String> documentNames,
 			List<MultipartFile> documentFiles) throws IOException, ValidationException, java.io.IOException {
 
@@ -49,7 +47,6 @@ public class GroomerKycService {
 		if (dto.getHasBusinessLicense() != null && dto.getHasBusinessLicense().equals(Boolean.TRUE)) {
 			kyc.setHasBusinessLicense(dto.getHasBusinessLicense());
 			if (dto.getBusinessLicenseDoc() != null && !dto.getBusinessLicenseDoc().isEmpty()) {
-				// Get bytes BEFORE transferring file
 				byte[] fileBytes = dto.getBusinessLicenseDoc().getBytes();
 				String path = saveFile(dto.getBusinessLicenseDoc(), "business_license", dto.getEmail(),
 						allowedExtensions);
@@ -213,10 +210,154 @@ public class GroomerKycService {
 		}
 
 		groomerKycRepository.save(kyc);
-
 	}
 
-	// =================================================================
+	// ===================== GET ALL METHOD =====================
+	public List<GroomerKycRequestDto> getAll() {
+		List<GroomerKyc> allDocumnets = groomerKycRepository.findAll();
+		System.out.println("***************" + allDocumnets.size());
+		return allDocumnets.stream().map(this::copyToDto).collect(Collectors.toList());
+	}
+
+	// ===================== GET BY UID METHOD =====================
+	public GroomerKycRequestDto getGroomerKycByUid(UUID uid) throws ValidationException {
+		GroomerKyc kyc = groomerKycRepository.findByUid(uid)
+				.orElseThrow(() -> new ValidationException("Groomer KYC not found with uid: " + uid));
+		return copyToDto(kyc);
+	}
+
+	// ===================== GET BY ID METHOD =====================
+	public GroomerKycRequestDto getGroomerKycById(Long id) throws ValidationException {
+		GroomerKyc kyc = groomerKycRepository.findById(id)
+				.orElseThrow(() -> new ValidationException("Groomer KYC not found with id: " + id));
+		return copyToDto(kyc);
+	}
+
+	// ===================== DELETE BY UID METHOD =====================
+	public void deleteGroomerKycByUid(UUID uid) throws ValidationException {
+		GroomerKyc kyc = groomerKycRepository.findByUid(uid)
+				.orElseThrow(() -> new ValidationException("Groomer KYC not found with uid: " + uid));
+
+		// Delete associated files from filesystem
+		deleteAssociatedFiles(kyc);
+
+		groomerKycRepository.delete(kyc);
+	}
+
+	// ===================== DELETE BY ID METHOD =====================
+	public void deleteGroomerKycById(Long id) throws ValidationException {
+		GroomerKyc kyc = groomerKycRepository.findById(id)
+				.orElseThrow(() -> new ValidationException("Groomer KYC not found with id: " + id));
+
+		// Delete associated files from filesystem
+		deleteAssociatedFiles(kyc);
+
+		groomerKycRepository.delete(kyc);
+	}
+
+	// ===================== GET STATUS BY UID METHOD =====================
+	public ApplicationStatus getStatusByUid(UUID uid) throws ValidationException {
+		GroomerKyc kyc = groomerKycRepository.findByUid(uid)
+				.orElseThrow(() -> new ValidationException("Groomer KYC not found with uid: " + uid));
+		return kyc.getStatus();
+	}
+
+	// ===================== GET STATUS BY ID METHOD =====================
+	public ApplicationStatus getStatusById(Long id) throws ValidationException {
+		GroomerKyc kyc = groomerKycRepository.findById(id)
+				.orElseThrow(() -> new ValidationException("Groomer KYC not found with id: " + id));
+		return kyc.getStatus();
+	}
+
+	// ===================== UPDATE STATUS BY UID METHOD =====================
+	public GroomerKycRequestDto updateApplicationStatusByUid(UUID uid, ApplicationStatus status)
+			throws ValidationException {
+		GroomerKyc kyc = groomerKycRepository.findByUid(uid)
+				.orElseThrow(() -> new ValidationException("Groomer KYC not found with uid: " + uid));
+
+		kyc.setStatus(status);
+		GroomerKyc updatedKyc = groomerKycRepository.save(kyc);
+
+		return copyToDto(updatedKyc);
+	}
+
+	// ===================== UPDATE STATUS BY ID METHOD =====================
+	public GroomerKycRequestDto updateApplicationStatusById(Long id, ApplicationStatus status)
+			throws ValidationException {
+		GroomerKyc kyc = groomerKycRepository.findById(id)
+				.orElseThrow(() -> new ValidationException("Groomer KYC not found with id: " + id));
+
+		kyc.setStatus(status);
+		GroomerKyc updatedKyc = groomerKycRepository.save(kyc);
+
+		return copyToDto(updatedKyc);
+	}
+
+	// ===================== HELPER METHODS =====================
+
+	private GroomerKycRequestDto copyToDto(GroomerKyc entity) {
+		GroomerKycRequestDto dto = new GroomerKycRequestDto();
+		BeanUtils.copyProperties(entity, dto);
+
+		// Set BaseEntity fields
+		dto.setId(entity.getId());
+		dto.setUid(entity.getUid());
+		dto.setCreatedAt(entity.getCreatedAt());
+		dto.setUpdatedAt(entity.getUpdatedAt());
+
+		// base endpoint (relative). If you want absolute URL include host via ServletUriComponentsBuilder.
+		String base = "/groomerkyc/uploaded_files/" + entity.getUid();
+
+		// For each stored file, set path (filename) and a type-specific URL
+		if (entity.getBusinessLicenseFilePath() != null && !entity.getBusinessLicenseFilePath().isBlank()) {
+			dto.setBusinessLicenseFilePath(entity.getBusinessLicenseFilePath());
+			dto.setBusinessLicenseFileURL(base + "/business_license");
+		}
+		if (entity.getGroomingCertificateDocPath() != null && !entity.getGroomingCertificateDocPath().isBlank()) {
+			dto.setGroomingCertificateDocPath(entity.getGroomingCertificateDocPath());
+			dto.setGroomingCertificateDocURL(base + "/grooming_certificate");
+		}
+		if (entity.getFirstAidCertificatePath() != null && !entity.getFirstAidCertificatePath().isBlank()) {
+			dto.setFirstAidCertificatePath(entity.getFirstAidCertificatePath());
+			dto.setFirstAidCertificateURL(base + "/first_aid_certificate");
+		}
+		if (entity.getInsuaranceDoccPath() != null && !entity.getInsuaranceDoccPath().isBlank()) {
+			dto.setInsuaranceDoccPath(entity.getInsuaranceDoccPath());
+			dto.setInsuaranceDoccURL(base + "/insurance");
+		}
+		if (entity.getCriminalDocPath() != null && !entity.getCriminalDocPath().isBlank()) {
+			dto.setCriminalDocPath(entity.getCriminalDocPath());
+			dto.setCriminalDocURL(base + "/criminal_record");
+		}
+		if (entity.getLiabilityDocPath() != null && !entity.getLiabilityDocPath().isBlank()) {
+			dto.setLiabilityDocPath(entity.getLiabilityDocPath());
+			dto.setLiabilityDocURL(base + "/liability_insurance");
+		}
+
+		return dto;
+	}
+
+	private void deleteAssociatedFiles(GroomerKyc kyc) {
+		// Delete all associated files from filesystem
+		deleteFileIfExists(kyc.getBusinessLicenseFilePath());
+		deleteFileIfExists(kyc.getGroomingCertificateDocPath());
+		deleteFileIfExists(kyc.getFirstAidCertificatePath());
+		deleteFileIfExists(kyc.getInsuaranceDoccPath());
+		deleteFileIfExists(kyc.getCriminalDocPath());
+		deleteFileIfExists(kyc.getLiabilityDocPath());
+	}
+
+	private void deleteFileIfExists(String filePath) {
+		if (filePath != null && !filePath.isEmpty()) {
+			try {
+				Path path = Paths.get(filePath);
+				Files.deleteIfExists(path);
+			} catch (IOException e) {
+				// Log error but don't throw exception
+				System.err.println("Failed to delete file: " + filePath);
+			}
+		}
+	}
 
 	private String saveFile(MultipartFile file, String type, String identifier, List<String> allowedExtensions)
 			throws IOException, ValidationException {
@@ -228,22 +369,16 @@ public class GroomerKycService {
 			throw new ValidationException("Invalid file type for: " + originalFilename);
 		}
 
-		// Create absolute path in project directory
 		String folderPath = DOCUMENT_ROOT + File.separator + QrFolder + File.separator + identifier + File.separator;
 		Path directory = Paths.get(folderPath);
-
-		// Create directories if they don't exist
 		Files.createDirectories(directory);
 
-		// Create full file path
 		String fileName = type + "_" + System.currentTimeMillis() + "." + ext;
 		String filePath = folderPath + fileName;
 
-		// Save file
 		File destFile = new File(filePath);
-		file.transferTo(destFile);	
+		file.transferTo(destFile);
 
 		return filePath;
 	}
-
 }

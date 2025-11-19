@@ -19,6 +19,12 @@ public class WalkerToClientKycEntity extends BaseEntity {
     @Column(length = 100)
     private String petUid;
 
+    // ==================== Status Field ====================
+    
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private KycStatus status = KycStatus.PENDING; // Default status
+
     // ==================== Pet & Routine Overview ====================
     
     @ManyToOne
@@ -139,7 +145,11 @@ public class WalkerToClientKycEntity extends BaseEntity {
     
     private LocalDate signatureDate;
 
-    // ==================== Enums (Kept for backward compatibility) ====================
+    // ==================== Enums ====================
+    
+    public enum KycStatus {
+        PENDING, APPROVED, REJECTED
+    }
     
     public enum EnergyLevel {
         LOW, MEDIUM, HIGH
@@ -154,6 +164,14 @@ public class WalkerToClientKycEntity extends BaseEntity {
     }
     
     // ==================== Getters & Setters ====================
+
+    public KycStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(KycStatus status) {
+        this.status = status;
+    }
 
     public PetsEntity getPet() {
         return pet;

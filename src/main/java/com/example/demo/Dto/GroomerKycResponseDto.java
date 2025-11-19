@@ -5,161 +5,81 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.web.multipart.MultipartFile;
-
 import com.example.demo.Entities.GroomerKyc.ApplicationStatus;
 import com.example.demo.Entities.GroomerKyc.ServiceLocationType;
 import com.example.demo.Entities.GroomerKyc.ServiceOffered;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-
-
-public class GroomerKycRequestDto {
+public class GroomerKycResponseDto {
 	
-	// BaseEntity fields
+	// Base Entity Fields
 	private Long id;
 	private UUID uid;
 	private LocalDateTime createdAt;
 	private LocalDateTime updatedAt;
 	
+	// Personal & Business Information
 	private String fullLegalName;
-	
 	private String businessName;
-	
 	private Boolean hasBusinessLicense;
-	
-	private MultipartFile businessLicenseDoc;
-	
+	private String businessLicenseDocBase64;  // Base64 encoded document
 	private String businessLicenseFilePath;
 	
-	private String businessLicenseFileURL;
-	
-	
 	private String email;
-	
 	private String phone;
-	
 	private String address;
-	
-	@Enumerated(EnumType.STRING)
 	private ServiceLocationType serviceLocationType;
-	
 	private Integer yearsExperience;
 	
-	// ********************************************Personal Credential   // ****************************************
-
+	// Professional Credentials
 	private Boolean hasGroomingCert;
-	
 	private String groomingCertDetails;
-	
-	private MultipartFile GroomingCertificateDoc;
-	
+	private String groomingCertificateDocBase64;  // Base64 encoded document
 	private String groomingCertificateDocPath;
 	
-	private String groomingCertificateDocURL;
-	
-	
-	
-	private Boolean hasFirstAidCert ;
-	
-	private MultipartFile firstAidCertificateDoc ;
-	
+	private Boolean hasFirstAidCert;
+	private String firstAidCertificateDocBase64;  // Base64 encoded document
 	private String firstAidCertificatePath;
 	
-	private String firstAidCertificateURL;
-	
-	
-	
-	
 	private Boolean hasInsurance;
-	
-	
 	private String insuranceProvider;
-
 	private String insurancePolicyNumber;
-
 	private LocalDate insuranceExpiry;
-	
-	
-	private MultipartFile insuranceDoc;
-	
+	private String insuranceDocBase64;  // Base64 encoded document
 	private String insuaranceDoccPath;
 	
-	private String insuaranceDoccURL;
-	
-	
-	
-	
-	private Boolean criminalCheck ;
-	
-	private MultipartFile crimialRecordDoc;
-
+	private Boolean criminalCheck;
+	private String criminalRecordDocBase64;  // Base64 encoded document
 	private String criminalDocPath;
 	
-	private String criminalDocURL;
-	
-	
-	//***************************************** Liability & Complience***********************************
-
-	private Boolean liabilityInsurance ;
-
+	// Liability & Compliance
+	private Boolean liabilityInsurance;
 	private String liabilityProvider;
-
 	private String liabilityPolicyNumber;
-
 	private LocalDate liabilityExpiry;
-
-
-	private MultipartFile liabilityInsuaranceDoc;
-	
+	private String liabilityInsuaranceDocBase64;  // Base64 encoded document
 	private String liabilityDocPath;
 	
-	private String liabilityDocURL;
-	
-	
-	
-	
-	
 	private Boolean hasIncidentPolicy;
-
-	@Column(length = 1000)
 	private String incidentPolicyDetails;
 	
-	// *****************************************Operation & service  **************************
-
-	@Enumerated(EnumType.STRING)
-	@Column(name = "services_offered")
+	// Operations & Services
 	private List<ServiceOffered> servicesOffered;
-	
 	private String servicesOtherText;
-	
 	private String servicesPrices;
-	
 	private Integer averageAppointmentDuration;
-
 	private String serviceRadius;
-
 	
-	// ********************************************* Declaration******************************************
-
-	
-	private Boolean declarationAccuracy ;
-
-	private Boolean declarationConsentVerify ;
-
-	private Boolean declarationComply ;
-
+	// Declarations
+	private Boolean declarationAccuracy;
+	private Boolean declarationConsentVerify;
+	private Boolean declarationComply;
 	private String signature;
-
 	private LocalDate signatureDate;
 	
-	@Enumerated(EnumType.STRING)
+	// Application Status
 	private ApplicationStatus status;
 
 	// Getters and Setters
-	
 	public Long getId() {
 		return id;
 	}
@@ -216,12 +136,12 @@ public class GroomerKycRequestDto {
 		this.hasBusinessLicense = hasBusinessLicense;
 	}
 
-	public MultipartFile getBusinessLicenseDoc() {
-		return businessLicenseDoc;
+	public String getBusinessLicenseDocBase64() {
+		return businessLicenseDocBase64;
 	}
 
-	public void setBusinessLicenseDoc(MultipartFile businessLicenseDoc) {
-		this.businessLicenseDoc = businessLicenseDoc;
+	public void setBusinessLicenseDocBase64(String businessLicenseDocBase64) {
+		this.businessLicenseDocBase64 = businessLicenseDocBase64;
 	}
 
 	public String getBusinessLicenseFilePath() {
@@ -230,14 +150,6 @@ public class GroomerKycRequestDto {
 
 	public void setBusinessLicenseFilePath(String businessLicenseFilePath) {
 		this.businessLicenseFilePath = businessLicenseFilePath;
-	}
-
-	public String getBusinessLicenseFileURL() {
-		return businessLicenseFileURL;
-	}
-
-	public void setBusinessLicenseFileURL(String businessLicenseFileURL) {
-		this.businessLicenseFileURL = businessLicenseFileURL;
 	}
 
 	public String getEmail() {
@@ -272,6 +184,14 @@ public class GroomerKycRequestDto {
 		this.serviceLocationType = serviceLocationType;
 	}
 
+	public Integer getYearsExperience() {
+		return yearsExperience;
+	}
+
+	public void setYearsExperience(Integer yearsExperience) {
+		this.yearsExperience = yearsExperience;
+	}
+
 	public Boolean getHasGroomingCert() {
 		return hasGroomingCert;
 	}
@@ -288,12 +208,12 @@ public class GroomerKycRequestDto {
 		this.groomingCertDetails = groomingCertDetails;
 	}
 
-	public MultipartFile getGroomingCertificateDoc() {
-		return GroomingCertificateDoc;
+	public String getGroomingCertificateDocBase64() {
+		return groomingCertificateDocBase64;
 	}
 
-	public void setGroomingCertificateDoc(MultipartFile groomingCertificateDoc) {
-		GroomingCertificateDoc = groomingCertificateDoc;
+	public void setGroomingCertificateDocBase64(String groomingCertificateDocBase64) {
+		this.groomingCertificateDocBase64 = groomingCertificateDocBase64;
 	}
 
 	public String getGroomingCertificateDocPath() {
@@ -304,14 +224,6 @@ public class GroomerKycRequestDto {
 		this.groomingCertificateDocPath = groomingCertificateDocPath;
 	}
 
-	public String getGroomingCertificateDocURL() {
-		return groomingCertificateDocURL;
-	}
-
-	public void setGroomingCertificateDocURL(String groomingCertificateDocURL) {
-		this.groomingCertificateDocURL = groomingCertificateDocURL;
-	}
-
 	public Boolean getHasFirstAidCert() {
 		return hasFirstAidCert;
 	}
@@ -320,12 +232,12 @@ public class GroomerKycRequestDto {
 		this.hasFirstAidCert = hasFirstAidCert;
 	}
 
-	public MultipartFile getFirstAidCertificateDoc() {
-		return firstAidCertificateDoc;
+	public String getFirstAidCertificateDocBase64() {
+		return firstAidCertificateDocBase64;
 	}
 
-	public void setFirstAidCertificateDoc(MultipartFile firstAidCertificateDoc) {
-		this.firstAidCertificateDoc = firstAidCertificateDoc;
+	public void setFirstAidCertificateDocBase64(String firstAidCertificateDocBase64) {
+		this.firstAidCertificateDocBase64 = firstAidCertificateDocBase64;
 	}
 
 	public String getFirstAidCertificatePath() {
@@ -334,14 +246,6 @@ public class GroomerKycRequestDto {
 
 	public void setFirstAidCertificatePath(String firstAidCertificatePath) {
 		this.firstAidCertificatePath = firstAidCertificatePath;
-	}
-
-	public String getFirstAidCertificateURL() {
-		return firstAidCertificateURL;
-	}
-
-	public void setFirstAidCertificateURL(String firstAidCertificateURL) {
-		this.firstAidCertificateURL = firstAidCertificateURL;
 	}
 
 	public Boolean getHasInsurance() {
@@ -376,12 +280,12 @@ public class GroomerKycRequestDto {
 		this.insuranceExpiry = insuranceExpiry;
 	}
 
-	public MultipartFile getInsuranceDoc() {
-		return insuranceDoc;
+	public String getInsuranceDocBase64() {
+		return insuranceDocBase64;
 	}
 
-	public void setInsuranceDoc(MultipartFile insuranceDoc) {
-		this.insuranceDoc = insuranceDoc;
+	public void setInsuranceDocBase64(String insuranceDocBase64) {
+		this.insuranceDocBase64 = insuranceDocBase64;
 	}
 
 	public String getInsuaranceDoccPath() {
@@ -392,14 +296,6 @@ public class GroomerKycRequestDto {
 		this.insuaranceDoccPath = insuaranceDoccPath;
 	}
 
-	public String getInsuaranceDoccURL() {
-		return insuaranceDoccURL;
-	}
-
-	public void setInsuaranceDoccURL(String insuaranceDoccURL) {
-		this.insuaranceDoccURL = insuaranceDoccURL;
-	}
-
 	public Boolean getCriminalCheck() {
 		return criminalCheck;
 	}
@@ -408,12 +304,12 @@ public class GroomerKycRequestDto {
 		this.criminalCheck = criminalCheck;
 	}
 
-	public MultipartFile getCrimialRecordDoc() {
-		return crimialRecordDoc;
+	public String getCriminalRecordDocBase64() {
+		return criminalRecordDocBase64;
 	}
 
-	public void setCrimialRecordDoc(MultipartFile crimialRecordDoc) {
-		this.crimialRecordDoc = crimialRecordDoc;
+	public void setCriminalRecordDocBase64(String criminalRecordDocBase64) {
+		this.criminalRecordDocBase64 = criminalRecordDocBase64;
 	}
 
 	public String getCriminalDocPath() {
@@ -422,14 +318,6 @@ public class GroomerKycRequestDto {
 
 	public void setCriminalDocPath(String criminalDocPath) {
 		this.criminalDocPath = criminalDocPath;
-	}
-
-	public String getCriminalDocURL() {
-		return criminalDocURL;
-	}
-
-	public void setCriminalDocURL(String criminalDocURL) {
-		this.criminalDocURL = criminalDocURL;
 	}
 
 	public Boolean getLiabilityInsurance() {
@@ -464,12 +352,12 @@ public class GroomerKycRequestDto {
 		this.liabilityExpiry = liabilityExpiry;
 	}
 
-	public MultipartFile getLiabilityInsuaranceDoc() {
-		return liabilityInsuaranceDoc;
+	public String getLiabilityInsuaranceDocBase64() {
+		return liabilityInsuaranceDocBase64;
 	}
 
-	public void setLiabilityInsuaranceDoc(MultipartFile liabilityInsuaranceDoc) {
-		this.liabilityInsuaranceDoc = liabilityInsuaranceDoc;
+	public void setLiabilityInsuaranceDocBase64(String liabilityInsuaranceDocBase64) {
+		this.liabilityInsuaranceDocBase64 = liabilityInsuaranceDocBase64;
 	}
 
 	public String getLiabilityDocPath() {
@@ -478,14 +366,6 @@ public class GroomerKycRequestDto {
 
 	public void setLiabilityDocPath(String liabilityDocPath) {
 		this.liabilityDocPath = liabilityDocPath;
-	}
-
-	public String getLiabilityDocURL() {
-		return liabilityDocURL;
-	}
-
-	public void setLiabilityDocURL(String liabilityDocURL) {
-		this.liabilityDocURL = liabilityDocURL;
 	}
 
 	public Boolean getHasIncidentPolicy() {
@@ -590,13 +470,5 @@ public class GroomerKycRequestDto {
 
 	public void setStatus(ApplicationStatus status) {
 		this.status = status;
-	}
-
-	public Integer getYearsExperience() {
-		return yearsExperience;
-	}
-
-	public void setYearsExperience(Integer yearsExperience) {
-		this.yearsExperience = yearsExperience;
 	}
 }

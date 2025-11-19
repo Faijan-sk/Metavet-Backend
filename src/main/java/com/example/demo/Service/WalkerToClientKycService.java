@@ -1,5 +1,6 @@
 package com.example.demo.Service;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,6 +12,7 @@ import com.example.demo.Dto.WalkerToClientKycRequestDto;
 import com.example.demo.Entities.PetsEntity;
 import com.example.demo.Entities.WalkerToClientKycEntity;
 import com.example.demo.Entities.WalkerToClientKycEntity.EnergyLevel;
+import com.example.demo.Entities.WalkerToClientKycEntity.KycStatus;
 import com.example.demo.Entities.WalkerToClientKycEntity.PreferredWalkType;
 import com.example.demo.Entities.WalkerToClientKycEntity.WalkingExperience;
 import com.example.demo.Repository.PetRepo;
@@ -31,6 +33,14 @@ public class WalkerToClientKycService {
     public WalkerToClientKycEntity createWalkerKyc(WalkerToClientKycRequestDto dto) throws ValidationException {
 
         WalkerToClientKycEntity kyc = new WalkerToClientKycEntity();
+
+        // ==================== Status Mapping (Optional) ====================
+        
+        // If status is provided in DTO, map it; otherwise, default PENDING will be used
+        if (dto.getStatus() != null && !dto.getStatus().trim().isEmpty()) {
+            kyc.setStatus(mapKycStatus(dto.getStatus()));
+        }
+        // If not provided, entity default (PENDING) will be used automatically
 
         // ==================== Pet Mapping via UUID ====================
         
@@ -215,6 +225,12 @@ public class WalkerToClientKycService {
 
         WalkerToClientKycEntity kyc = existingKycOpt.get();
 
+        // ==================== Status Mapping (Optional) ====================
+        
+        if (dto.getStatus() != null && !dto.getStatus().trim().isEmpty()) {
+            kyc.setStatus(mapKycStatus(dto.getStatus()));
+        }
+
         // ==================== Pet Mapping via UUID ====================
         
         if (dto.getPetUid() != null && !dto.getPetUid().trim().isEmpty()) {
@@ -376,6 +392,18 @@ public class WalkerToClientKycService {
         return walkerKycRepo.save(kyc);
     }
 
+    // ==================== NEW: Get All KYCs ====================
+    
+    public List<WalkerToClientKycEntity> getAllWalkerKycs() {
+        return walkerKycRepo.findAllByOrderByCreatedAtDesc();
+    }
+
+    // ==================== NEW: Get KYC by UID ====================
+    
+    public Optional<WalkerToClientKycEntity> getWalkerKycByUid(UUID uid) {
+        return walkerKycRepo.findByUid(uid);
+    }
+
     public Optional<WalkerToClientKycEntity> getWalkerKycById(Long id) {
         return walkerKycRepo.findById(id);
     }
@@ -388,6 +416,39 @@ public class WalkerToClientKycService {
         return walkerKycRepo.findByPetUid(petUid);
     }
 
+    // ==================== NEW: Update Status by UID ====================
+    
+    @Transactional
+    public WalkerToClientKycEntity updateStatusByUid(UUID uid, String status) throws ValidationException {
+        Optional<WalkerToClientKycEntity> kycOpt = walkerKycRepo.findByUid(uid);
+        
+        if (!kycOpt.isPresent()) {
+            throw new ValidationException("Walker KYC with UID " + uid + " not found.");
+        }
+        
+        WalkerToClientKycEntity kyc = kycOpt.get();
+        KycStatus mappedStatus = mapKycStatus(status);
+        
+        if (mappedStatus == null) {
+            throw new ValidationException("Invalid status value: " + status + ". Allowed values: PENDING, APPROVED, REJECTED");
+        }
+        
+        kyc.setStatus(mappedStatus);
+        return walkerKycRepo.save(kyc);
+    }
+
+    // ==================== NEW: Delete by UID ====================
+    
+    @Transactional
+    public void deleteWalkerKycByUid(UUID uid) throws ValidationException {
+        if (!walkerKycRepo.existsByUid(uid)) {
+            throw new ValidationException("Walker KYC with UID " + uid + " not found.");
+        }
+        
+        Optional<WalkerToClientKycEntity> kycOpt = walkerKycRepo.findByUid(uid);
+        kycOpt.ifPresent(kyc -> walkerKycRepo.delete(kyc));
+    }
+
     @Transactional
     public void deleteWalkerKyc(Long id) throws ValidationException {
         if (!walkerKycRepo.existsById(id)) {
@@ -397,6 +458,21 @@ public class WalkerToClientKycService {
     }
     
     // ==================== Helper Methods for Enum Mapping ====================
+    
+    private KycStatus mapKycStatus(String status) {
+        if (status == null) return null;
+        
+        switch (status.toUpperCase()) {
+            case "PENDING":
+                return KycStatus.PENDING;
+            case "APPROVED":
+                return KycStatus.APPROVED;
+            case "REJECTED":
+                return KycStatus.REJECTED;
+            default:
+                return null;
+        }
+    }
     
     private EnergyLevel mapEnergyLevel(String level) {
         if (level == null) return null;
