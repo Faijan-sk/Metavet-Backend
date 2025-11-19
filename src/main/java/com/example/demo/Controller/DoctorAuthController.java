@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * DoctorAuthController - cleaned and aligned with DoctorService methods.
@@ -103,116 +104,96 @@ public class DoctorAuthController {
         }
     }
 
-    /**
-     * Create new doctor profile
-     * POST /api/auth/doctor/create
-     */
     @PostMapping("/doctor/create")
-    public ResponseEntity<ApiResponse<DoctorsEntity>> createDoctor(
-            @Valid @RequestBody CreateDoctorRequest request,
-            BindingResult bindingResult) {
-
-        System.out.println("=== CREATE DOCTOR ENDPOINT CALLED ===");
+    public ResponseEntity<?> createDoctor(@Valid @RequestBody CreateDoctorRequest request, BindingResult bindingResult) {
+        
+        // Validation errors check
+        if (bindingResult.hasErrors()) {
+            Map<String, String> errors = new HashMap<>();
+            bindingResult.getFieldErrors().forEach(error -> 
+                errors.put(error.getField(), error.getDefaultMessage())
+            );
+            return ResponseEntity.badRequest()
+                .body(Map.of(
+                    "success", false,
+                    "message", "Validation failed",
+                    "errors", errors
+                ));
+        }
 
         try {
-            // Validation errors check
-            if (bindingResult.hasErrors()) {
-                String errorMessage = bindingResult.getFieldErrors().stream()
-                        .map(error -> error.getDefaultMessage())
-                        .collect(Collectors.joining(", "));
-
+            // Convert userId string to UUID
+            UUID userUid;
+            try {
+                userUid = UUID.fromString(request.getUserId());
+            } catch (IllegalArgumentException e) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>(false, "Validation failed: " + errorMessage, null));
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Invalid userId format. Must be a valid UUID"
+                    ));
             }
 
-            // Check if user exists
-            Optional<UsersEntity> userOptional = userRepository.findById(request.getUserId());
-            if (userOptional.isEmpty()) {
+            // Find user
+            Optional<UsersEntity> userOpt = userRepository.findByUid(userUid);
+            if (userOpt.isEmpty()) {
                 return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>(false, "User not found with ID: " + request.getUserId(), null));
+                    .body(Map.of(
+                        "success", false,
+                        "message", "User not found with UID: " + userUid
+                    ));
             }
 
-            UsersEntity user = userOptional.get();
-
-            // Check if user is doctor (userType = 2)
-            if (user.getUserType() == null || user.getUserType() != 2) {
-                return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>(false, "User is not registered as a doctor", null));
-            }
-
-            // Check if doctor profile already exists (use service method that returns Optional)
-            if (doctorService.getDoctorByUser(user).isPresent()) {
-                return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>(false, "Doctor profile already exists for this user", null));
-            }
-
-            // Check if license number already exists (use service method that returns Optional)
-            if (request.getLicenseNumber() != null && doctorService.getDoctorByLicenseNumber(request.getLicenseNumber()).isPresent()) {
-                return ResponseEntity.badRequest()
-                        .body(new ApiResponse<>(false, "License number already exists: " + request.getLicenseNumber(), null));
-            }
-
-            // Create DoctorsEntity from request
+            // Create doctor entity
             DoctorsEntity doctor = new DoctorsEntity();
-
-            // Set user
-            doctor.setUser(user);
-
-            // Professional Information
+            doctor.setUser(userOpt.get());
+            doctor.setExperienceYears(request.getExperienceYears());
+            doctor.setHospitalClinicName(request.getHospitalClinicName());
+            doctor.setHospitalClinicAddress(request.getHospitalClinicAddress());
+            doctor.setPincode(request.getPincode());
+            doctor.setAddress(request.getAddress());
+            doctor.setCountry(request.getCountry());
+            doctor.setCity(request.getCity());
+            doctor.setState(request.getState());
+            doctor.setBio(request.getBio());
+            doctor.setConsultationFee(request.getConsultationFee());
+            doctor.setGender(request.getGender());
+            doctor.setDateOfBirth(request.getDateOfBirth());
             doctor.setLicenseNumber(request.getLicenseNumber());
             doctor.setLicenseIssueDate(request.getLicenseIssueDate());
             doctor.setLicenseExpiryDate(request.getLicenseExpiryDate());
             doctor.setQualification(request.getQualification());
             doctor.setSpecialization(request.getSpecialization());
-            doctor.setExperienceYears(request.getExperienceYears());
-
-            // Hospital/Clinic Information
-            doctor.setHospitalClinicName(request.getHospitalClinicName());
-            doctor.setHospitalClinicAddress(request.getHospitalClinicAddress());
-            doctor.setPincode(request.getPincode());
-
-            // Address Information
-            doctor.setAddress(request.getAddress());
-            doctor.setCity(request.getCity());
-            doctor.setState(request.getState());
-            doctor.setCountry(request.getCountry() != null ? request.getCountry() : "India");
-
-            // Personal Information
-            doctor.setGender(request.getGender());
-            doctor.setDateOfBirth(request.getDateOfBirth());
+            doctor.setPreviousWorkplace(request.getPreviousWorkplace());
+            doctor.setJoiningDate(request.getJoiningDate());
+            doctor.setResignationDate(request.getResignationDate());
+            doctor.setEmploymentType(request.getEmploymentType());
+            doctor.setIsActive(request.getIsActive());
             doctor.setEmergencyContactNumber(request.getEmergencyContactNumber());
 
-            // Employment Information
-            doctor.setEmploymentType(request.getEmploymentType());
-            doctor.setJoiningDate(request.getJoiningDate());
-            doctor.setPreviousWorkplace(request.getPreviousWorkplace());
-
-            // Professional Details
-            doctor.setBio(request.getBio());
-            doctor.setConsultationFee(request.getConsultationFee());
-
-            // Default values
-            doctor.setIsAvailable(true);
-            doctor.setIsActive(true);
-            doctor.setDoctorProfileStatus(DoctorProfileStatus.PENDING);
-            doctor.setCreatedAt(LocalDateTime.now());
-            doctor.setUpdatedAt(LocalDateTime.now());
-
-            // Save doctor
+            // Save using service
             DoctorsEntity savedDoctor = doctorService.createDoctorEnhanced(doctor);
 
-            System.out.println("✅ Doctor profile created successfully!");
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .body(new ApiResponse<>(true, "Doctor profile created successfully", savedDoctor));
+                .body(Map.of(
+                    "success", true,
+                    "message", "Doctor profile created successfully",
+                    "data", savedDoctor
+                ));
 
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
-                    .body(new ApiResponse<>(false, e.getMessage(), null));
+                .body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+                ));
         } catch (Exception e) {
-            System.out.println("❌ Error creating doctor: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ApiResponse<>(false, "Failed to create doctor profile: " + e.getMessage(), null));
+                .body(Map.of(
+                    "success", false,
+                    "message", "Failed to create doctor profile: " + e.getMessage()
+                ));
         }
     }
 

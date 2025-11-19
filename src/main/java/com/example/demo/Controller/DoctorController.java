@@ -44,14 +44,160 @@ public class DoctorController {
      * Create a new doctor profile
      * POST /api/doctors
      */
+//    @PostMapping
+//    public ResponseEntity<?> createDoctor(@Valid @RequestBody DoctorsEntity doctor) {
+//        try {
+//            DoctorsEntity savedDoctor = doctorService.createDoctorEnhanced(doctor);
+//
+//            // Initialize lazy fields to avoid serialization issues
+//            if (savedDoctor.getUser() != null) {
+//                savedDoctor.getUser().getEmail(); // touch the lazy field
+//            }
+//
+//            return ResponseEntity.status(HttpStatus.CREATED)
+//                .body(Map.of(
+//                    "success", true,
+//                    "message", "Doctor profile created successfully. User profile marked as completed.",
+//                    "data", savedDoctor,
+//                    "profileCompleted", savedDoctor.getUser().isProfileCompleted()
+//                ));
+//        } catch (IllegalArgumentException e) {
+//            return ResponseEntity.badRequest()
+//                .body(Map.of(
+//                    "success", false,
+//                    "message", e.getMessage()
+//                ));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return ResponseEntity.internalServerError()
+//                .body(Map.of(
+//                    "success", false,
+//                    "message", "Failed to create doctor profile: " + e.getMessage()
+//                ));
+//        }
+//    }
+    
+    /**
+     * Create a new doctor profile
+     * POST /api/doctors
+     */
     @PostMapping
-    public ResponseEntity<?> createDoctor(@Valid @RequestBody DoctorsEntity doctor) {
+    public ResponseEntity<?> createDoctor(@Valid @RequestBody Map<String, Object> requestBody) {
         try {
+            // Extract userId and validate
+            String userIdStr = (String) requestBody.get("userId");
+            if (userIdStr == null || userIdStr.trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of(
+                        "success", false,
+                        "message", "userId is required"
+                    ));
+            }
+
+            UUID userUid;
+            try {
+                userUid = UUID.fromString(userIdStr);
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Invalid userId format. Must be a valid UUID"
+                    ));
+            }
+
+            // Find user
+            Optional<UsersEntity> userOpt = userRepository.findByUid(userUid);
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(Map.of(
+                        "success", false,
+                        "message", "User not found with UID: " + userUid
+                    ));
+            }
+
+            // Create doctor entity
+            DoctorsEntity doctor = new DoctorsEntity();
+            doctor.setUser(userOpt.get());
+            
+            // Map all fields from request
+            if (requestBody.containsKey("experienceYears")) {
+                doctor.setExperienceYears(((Number) requestBody.get("experienceYears")).intValue());
+            }
+            if (requestBody.containsKey("hospitalClinicName")) {
+                doctor.setHospitalClinicName((String) requestBody.get("hospitalClinicName"));
+            }
+            if (requestBody.containsKey("hospitalClinicAddress")) {
+                doctor.setHospitalClinicAddress((String) requestBody.get("hospitalClinicAddress"));
+            }
+            if (requestBody.containsKey("pincode")) {
+                doctor.setPincode((String) requestBody.get("pincode"));
+            }
+            if (requestBody.containsKey("address")) {
+                doctor.setAddress((String) requestBody.get("address"));
+            }
+            if (requestBody.containsKey("country")) {
+                doctor.setCountry((String) requestBody.get("country"));
+            }
+            if (requestBody.containsKey("city")) {
+                doctor.setCity((String) requestBody.get("city"));
+            }
+            if (requestBody.containsKey("state")) {
+                doctor.setState((String) requestBody.get("state"));
+            }
+            if (requestBody.containsKey("bio")) {
+                doctor.setBio((String) requestBody.get("bio"));
+            }
+            if (requestBody.containsKey("consultationFee")) {
+                doctor.setConsultationFee(((Number) requestBody.get("consultationFee")).doubleValue());
+            }
+            if (requestBody.containsKey("isActive")) {
+                doctor.setIsActive((Boolean) requestBody.get("isActive"));
+            }
+            if (requestBody.containsKey("isAvailable")) {
+                doctor.setIsAvailable((Boolean) requestBody.get("isAvailable"));
+            }
+            if (requestBody.containsKey("gender")) {
+                doctor.setGender(Gender.valueOf((String) requestBody.get("gender")));
+            }
+            if (requestBody.containsKey("dateOfBirth")) {
+                doctor.setDateOfBirth(LocalDate.parse((String) requestBody.get("dateOfBirth")));
+            }
+            if (requestBody.containsKey("licenseNumber")) {
+                doctor.setLicenseNumber((String) requestBody.get("licenseNumber"));
+            }
+            if (requestBody.containsKey("licenseIssueDate")) {
+                doctor.setLicenseIssueDate(LocalDate.parse((String) requestBody.get("licenseIssueDate")));
+            }
+            if (requestBody.containsKey("licenseExpiryDate")) {
+                doctor.setLicenseExpiryDate(LocalDate.parse((String) requestBody.get("licenseExpiryDate")));
+            }
+            if (requestBody.containsKey("qualification")) {
+                doctor.setQualification((String) requestBody.get("qualification"));
+            }
+            if (requestBody.containsKey("specialization")) {
+                doctor.setSpecialization((String) requestBody.get("specialization"));
+            }
+            if (requestBody.containsKey("previousWorkplace")) {
+                doctor.setPreviousWorkplace((String) requestBody.get("previousWorkplace"));
+            }
+            if (requestBody.containsKey("joiningDate")) {
+                doctor.setJoiningDate(LocalDate.parse((String) requestBody.get("joiningDate")));
+            }
+            if (requestBody.containsKey("resignationDate")) {
+                doctor.setResignationDate(LocalDate.parse((String) requestBody.get("resignationDate")));
+            }
+            if (requestBody.containsKey("employmentType")) {
+                doctor.setEmploymentType(EmploymentType.valueOf((String) requestBody.get("employmentType")));
+            }
+            if (requestBody.containsKey("emergencyContactNumber")) {
+                doctor.setEmergencyContactNumber((String) requestBody.get("emergencyContactNumber"));
+            }
+
             DoctorsEntity savedDoctor = doctorService.createDoctorEnhanced(doctor);
 
             // Initialize lazy fields to avoid serialization issues
             if (savedDoctor.getUser() != null) {
-                savedDoctor.getUser().getEmail(); // touch the lazy field
+                savedDoctor.getUser().getEmail();
             }
 
             return ResponseEntity.status(HttpStatus.CREATED)
@@ -65,17 +211,20 @@ public class DoctorController {
             return ResponseEntity.badRequest()
                 .body(Map.of(
                     "success", false,
-                    "message", e.getMessage()
+                    "message", e.getMessage(),
+                    "error", "VALIDATION_ERROR"
                 ));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.internalServerError()
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of(
                     "success", false,
-                    "message", "Failed to create doctor profile: " + e.getMessage()
+                    "message", "Failed to create doctor profile: " + e.getMessage(),
+                    "error", "SERVER_ERROR"
                 ));
         }
     }
+    
 
     /**
      * Update doctor profile by user UID (UUID)
