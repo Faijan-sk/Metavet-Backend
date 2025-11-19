@@ -7,13 +7,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.Dto.BehaviouristKycRequestDto;
 import com.example.demo.Entities.BehaviouristKyc;
+import com.example.demo.Entities.BehaviouristKyc.ApprovalStatus;
 import com.example.demo.Repository.BehaviouristKycRepo;
 
 import jakarta.validation.ValidationException;
@@ -196,6 +200,120 @@ public class BehaviouristKycService {
         }
 
         behaviouristKycRepo.save(kyc);
+    }
+
+    // ===================== GET ALL METHOD =====================
+    public List<BehaviouristKycRequestDto> getAll() {
+        List<BehaviouristKyc> allDocuments = behaviouristKycRepo.findAllByOrderByCreatedAtDesc();
+        System.out.println("***************" + allDocuments.size());
+        return allDocuments.stream().map(this::copyToDto).collect(Collectors.toList());
+    }
+
+    // ===================== GET BY UID METHOD =====================
+    public BehaviouristKycRequestDto getBehaviouristKycByUid(UUID uid) throws ValidationException {
+        BehaviouristKyc kyc = behaviouristKycRepo.findByUid(uid)
+                .orElseThrow(() -> new ValidationException("Behaviourist KYC not found with uid: " + uid));
+        return copyToDto(kyc);
+    }
+
+    // ===================== DELETE BY UID METHOD =====================
+    public void deleteBehaviouristKycByUid(UUID uid) throws ValidationException {
+        BehaviouristKyc kyc = behaviouristKycRepo.findByUid(uid)
+                .orElseThrow(() -> new ValidationException("Behaviourist KYC not found with uid: " + uid));
+
+        // Delete associated files from filesystem
+        deleteAssociatedFiles(kyc);
+
+        behaviouristKycRepo.delete(kyc);
+    }
+
+    // ===================== GET STATUS BY UID METHOD =====================
+    public ApprovalStatus getStatusByUid(UUID uid) throws ValidationException {
+        BehaviouristKyc kyc = behaviouristKycRepo.findByUid(uid)
+                .orElseThrow(() -> new ValidationException("Behaviourist KYC not found with uid: " + uid));
+        return kyc.getStatus();
+    }
+
+    // ===================== UPDATE STATUS BY UID METHOD =====================
+    public BehaviouristKycRequestDto updateApplicationStatusByUid(UUID uid, String status) throws ValidationException {
+        BehaviouristKyc kyc = behaviouristKycRepo.findByUid(uid)
+                .orElseThrow(() -> new ValidationException("Behaviourist KYC not found with uid: " + uid));
+
+        // Convert string to ApprovalStatus enum
+        ApprovalStatus approvalStatus;
+        try {
+            approvalStatus = ApprovalStatus.valueOf(status.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Invalid status value. Allowed values: PENDING, APPROVED, REJECTED, UNDER_REVIEW");
+        }
+
+        kyc.setStatus(approvalStatus);
+        BehaviouristKyc updatedKyc = behaviouristKycRepo.save(kyc);
+
+        return copyToDto(updatedKyc);
+    }
+
+    // ===================== HELPER METHODS =====================
+
+    private BehaviouristKycRequestDto copyToDto(BehaviouristKyc entity) {
+        BehaviouristKycRequestDto dto = new BehaviouristKycRequestDto();
+
+        // Copy all properties using BeanUtils
+        BeanUtils.copyProperties(entity, dto);
+
+        // Explicitly set BaseEntity fields
+        dto.setId(entity.getId());
+        dto.setUid(entity.getUid());
+        dto.setCreatedAt(entity.getCreatedAt());
+        dto.setUpdatedAt(entity.getUpdatedAt());
+
+        // base endpoint (relative). If you want absolute URL include host via ServletUriComponentsBuilder.
+        String base = "/api/behaviouristkyc/uploaded_files/" + entity.getUid();
+
+        // For each stored file, set path (filename) and a type-specific URL
+        if (entity.getBehaviouralCertificateFilePath() != null && !entity.getBehaviouralCertificateFilePath().isBlank()) {
+            dto.setBehaviouralCertificateFilePath(entity.getBehaviouralCertificateFilePath());
+            dto.setBehaviouralCertificateFileURL(base + "/behavioural_certificate");
+        }
+        if (entity.getInsuranceDocPath() != null && !entity.getInsuranceDocPath().isBlank()) {
+            dto.setInsuranceDocPath(entity.getInsuranceDocPath());
+            dto.setInsuranceDocURL(base + "/insurance");
+        }
+        if (entity.getCriminalDocPath() != null && !entity.getCriminalDocPath().isBlank()) {
+            dto.setCriminalDocPath(entity.getCriminalDocPath());
+            dto.setCriminalDocURL(base + "/criminal_record");
+        }
+        if (entity.getLiabilityDocPath() != null && !entity.getLiabilityDocPath().isBlank()) {
+            dto.setLiabilityDocPath(entity.getLiabilityDocPath());
+            dto.setLiabilityDocURL(base + "/liability_insurance");
+        }
+        if (entity.getBusinessLicenseFilePath() != null && !entity.getBusinessLicenseFilePath().isBlank()) {
+            dto.setBusinessLicenseFilePath(entity.getBusinessLicenseFilePath());
+            dto.setBusinessLicenseFileURL(base + "/business_license");
+        }
+
+        return dto;
+    }
+
+    private void deleteAssociatedFiles(BehaviouristKyc kyc) {
+        // Delete all associated files from filesystem
+        deleteFileIfExists(kyc.getBehaviouralCertificateFilePath());
+        deleteFileIfExists(kyc.getInsuranceDocPath());
+        deleteFileIfExists(kyc.getCriminalDocPath());
+        deleteFileIfExists(kyc.getLiabilityDocPath());
+        deleteFileIfExists(kyc.getBusinessLicenseFilePath());
+    }
+
+    private void deleteFileIfExists(String filePath) {
+        if (filePath != null && !filePath.isEmpty()) {
+            try {
+                Path path = Paths.get(filePath);
+                Files.deleteIfExists(path);
+            } catch (IOException e) {
+                // Log error but don't throw exception
+                System.err.println("Failed to delete file: " + filePath);
+            }
+        }
     }
 
     // ============================================ File Save Helper ============================================

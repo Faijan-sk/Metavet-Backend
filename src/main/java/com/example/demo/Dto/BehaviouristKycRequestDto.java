@@ -1,14 +1,23 @@
 package com.example.demo.Dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.Entities.BehaviouristKyc.ServiceOffered;
 import com.example.demo.Entities.BehaviouristKyc.Specialization;
+import com.example.demo.Entities.BehaviouristKyc.ApprovalStatus;
 
 public class BehaviouristKycRequestDto {
+
+    // BaseEntity fields
+    private Long id;
+    private UUID uid;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     // ---------------- Personal & Business Information ----------------
     private String fullLegalName;
@@ -66,7 +75,42 @@ public class BehaviouristKycRequestDto {
     private String signature;
     private LocalDate signatureDate;
 
+    // ---------------- Status ----------------
+    private ApprovalStatus status;
+
     // ---------------- Getters and Setters ----------------
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public UUID getUid() {
+        return uid;
+    }
+
+    public void setUid(UUID uid) {
+        this.uid = uid;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 
     public String getFullLegalName() {
         return fullLegalName;
@@ -402,5 +446,13 @@ public class BehaviouristKycRequestDto {
 
     public void setSignatureDate(LocalDate signatureDate) {
         this.signatureDate = signatureDate;
+    }
+
+    public ApprovalStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ApprovalStatus status) {
+        this.status = status;
     }
 }
