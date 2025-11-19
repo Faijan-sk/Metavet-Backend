@@ -22,6 +22,7 @@ public class CorsConfig {
             "http://35.206.66.49",            // GCP frontend (port 80) - MAIN b URL
             "http://34.71.120.171:8080",
             "http://34.71.120.171:8181",
+            "http://34.71.120.171:8282",
             "http://34.71.120.171",// GCP frontend (port 3000)
             "https://34.61.254.251",           // GCP frontend HTTPS (port 443)
             "https://34.61.254.251:3000"  ,
