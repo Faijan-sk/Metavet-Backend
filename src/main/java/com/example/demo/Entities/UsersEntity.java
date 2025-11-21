@@ -83,9 +83,7 @@ public class UsersEntity extends BaseEntity implements UserDetails {
     private boolean isProfileCompleted = false;
 
     // ============ USER ROLE RELATIONSHIP ============
-    @ManyToOne
-    @JoinColumn(name = "user_role_id")
-    private UserPermission userRole;
+ 
 
     // NOTE: onCreate and onUpdate are now handled by BaseEntity
     // Removed duplicate @PrePersist and @PreUpdate methods
@@ -224,12 +222,5 @@ public class UsersEntity extends BaseEntity implements UserDetails {
         this.isProfileCompleted = isProfileCompleted;
     }
 
-    // ============ USER ROLE GETTER & SETTER ============
-    public UserPermission getUserRole() {
-        return userRole;
-    }
-
-    public void setUserRole(UserPermission userRole) {
-        this.userRole = userRole;
-    }
+    
 }

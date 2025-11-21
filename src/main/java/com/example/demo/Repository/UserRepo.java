@@ -1,6 +1,6 @@
 package com.example.demo.Repository;
 
-import com.example.demo.Entities.UserPermission;
+
 import com.example.demo.Entities.UsersEntity;
 
 import java.util.List;
@@ -81,17 +81,4 @@ public interface UserRepo extends JpaRepository<UsersEntity, Long> {
 
     // ============ ROLE / PERMISSION RELATED METHODS ============
 
-    /**
-     * Check whether any user exists with the given UserPermission entity reference.
-     * Use this when you already have the UserPermission instance.
-     */
-    boolean existsByUserRole(UserPermission userRole);
-
-    /**
-     * Convenience check by role UID (avoids needing the full UserPermission entity).
-     * This relies on property traversal: UsersEntity.userRole.uid
-     */
-    boolean existsByUserRoleUid(UUID roleUid);
-
-    // Add other user-related repository methods below as needed...
 }
